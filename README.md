@@ -1,8 +1,8 @@
 # Scheduled Sending  
 
-Roundcube Plugin to schedule future deliveries of emails on the date and time you need.
+Schedule messages to be transmitted when you want them to go.
 
-This is a WIP massively and will post initial commit within a month.
+This is a WIP and I will post initial commit within a month.
 
 
 Enjoy!
