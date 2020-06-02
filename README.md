@@ -14,9 +14,3 @@ Zelle (Zelle is integrated within many major banks Mobile Apps by default) - Jus
 No Zelle in your banks mobile app, no problem, just click [Paypal](https://paypal.me/texxasrulez?locale.x=en_US) and I can make a Starbucks run ...
 
 I appreciate the interest in this plugin and hope all the best ...
-
-**Screenshot**
------------
-With All Details enabled
-
-![Alt text](/tests/ad-screenshot1.png?raw=true "Account Details Screenshot")
