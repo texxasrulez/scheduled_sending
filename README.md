@@ -158,7 +158,7 @@ The plugin exposes an **HTTP worker action** that sends all messages scheduled a
 **Worker URL shape:**
 
 ```
-https://YOUR-ROUNDCUBE-BASE/?_task=mail&_action=plugin.scheduled_sending.send_due&_token=YOUR_SECRET
+https://YOUR-ROUNDCUBE-BASE/?_task=mail&_action=plugin.scheduled_sending.send_due&_token=32_character_key
 ```
 
 There are two convenient ways to call it periodically:
@@ -172,28 +172,28 @@ There are two convenient ways to call it periodically:
 
 ```bash
 # Using CLI flags
-php plugins/scheduled_sending/bin/scheduled_queue_worker.php   --url="https://mail.example.com/roundcube/"   --token="YOUR_SECRET"
+php plugins/scheduled_sending/bin/scheduled_queue_worker.php   --url="https://mail.example.com/roundcube/"   --token="32_character_key"
 
 # Or via environment variables
-SS_WORKER_URL="https://mail.example.com/roundcube/" SS_WORKER_TOKEN="YOUR_SECRET" php plugins/scheduled_sending/bin/scheduled_queue_worker.php
+SS_WORKER_URL="https://mail.example.com/roundcube/" SS_WORKER_TOKEN="32_character_key" php plugins/scheduled_sending/bin/scheduled_queue_worker.php
 ```
 
 **Cron:** run once per minute (or every 5 minutes if your use-case is lax):
 
 ```cron
-* * * * * SS_WORKER_URL="https://mail.example.com/roundcube/" SS_WORKER_TOKEN="YOUR_SECRET"     php /var/www/roundcube/plugins/scheduled_sending/bin/scheduled_queue_worker.php >> /var/log/roundcube/scheduled_worker.log 2>&1
+* * * * * SS_WORKER_URL="https://mail.example.com/roundcube/" SS_WORKER_TOKEN="32_character_key"     php /var/www/roundcube/plugins/scheduled_sending/bin/scheduled_queue_worker.php >> /var/log/roundcube/scheduled_worker.log 2>&1
 ```
 
 ### B) Direct HTTP call (curl/wget)
 
 ```bash
-curl -fsS "https://mail.example.com/roundcube/?_task=mail&_action=plugin.scheduled_sending.send_due&_token=YOUR_SECRET"
+curl -fsS "https://mail.example.com/roundcube/?_task=mail&_action=plugin.scheduled_sending.send_due&_token=32_character_key"
 ```
 
 Cron variant:
 
 ```cron
-* * * * * curl -fsS "https://mail.example.com/roundcube/?_task=mail&_action=plugin.scheduled_sending.send_due&_token=YOUR_SECRET" >> /var/log/roundcube/scheduled_worker.log 2>&1
+* * * * * curl -fsS "https://mail.example.com/roundcube/?_task=mail&_action=plugin.scheduled_sending.send_due&_token=32_character_key" >> /var/log/roundcube/scheduled_worker.log 2>&1
 ```
 
 > The worker is idempotent and gated by a lock (`scheduled_sending_lock_key` / timeout) to avoid overlap.
