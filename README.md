@@ -39,7 +39,7 @@ This guide covers both **Composer-based** and **manual** installation, database 
      { "type": "path", "url": "../scheduled_sending_composer" }
    ],
    "require": {
-     "gene/scheduled_sending": "*"
+     "texxasrulez/scheduled_sending": "*"
    }
    ```
 
@@ -47,7 +47,7 @@ This guide covers both **Composer-based** and **manual** installation, database 
    ```bash
    composer install
    # or
-   composer require gene/scheduled_sending:*
+   composer require texxasrulez/scheduled_sending:*
    ```
 
 > Composer will install the plugin under `plugins/scheduled_sending` (per its `composer.json`).
