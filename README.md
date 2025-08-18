@@ -60,7 +60,7 @@ This guide covers both **Composer-based** and **manual** installation, database 
    ```
 2. Ensure permissions match your web server user:
    ```bash
-   chown -R www-data:www-data plugins/scheduled_sending
+   chown -R www-data:www-data plugins/scheduled_sending (or tailor to your server's user:group)
    find plugins/scheduled_sending -type d -exec chmod 755 {} \;
    find plugins/scheduled_sending -type f -exec chmod 644 {} \;
    ```
