@@ -1,0 +1,16 @@
+.button-sendlater:before { content: "⏰"; margin-right: .3em; }
+#scheduled-sending-modal {
+  position: fixed; inset: 0; background: rgba(0,0,0,.35);
+  display: none; z-index: 10000;
+  align-items: center; justify-content: center;
+}
+#scheduled-sending-modal .ss-card {
+  background: #fff; padding: 16px; border-radius: 10px; min-width: 320px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.2);
+}
+#scheduled-sending-modal .ss-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
+#scheduled-sending-modal input[type="datetime-local"] { width: 100%; padding: 8px; }
+
+.button-sendlater .icon{margin-right:.3em}
+
+#ss-fab{position:fixed;right:16px;bottom:16px;z-index:10020}
