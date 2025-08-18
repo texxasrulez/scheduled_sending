@@ -7,7 +7,7 @@ Currently works good, but no attachment support at this time.
 
 This plugin lets users **schedule emails to be sent later**. It includes a web UI, localization, and CLI helpers to trigger a **queue worker** that delivers messages when they’re due.
 
-This guide covers both **Composer-based** and **manual** installation, database setup, configuration, and setting up the worker trigger (cron/systemd). All steps are derived from the plugin code you provided.
+This guide covers both **Composer-based** and **manual** installation, database setup, configuration, and setting up the worker trigger (cron/systemd).
 
 ---
 
