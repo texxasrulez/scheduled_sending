@@ -1,0 +1,29 @@
+{
+  "name": "texxasrulez/scheduled_sending",
+  "description": "Roundcube plugin: multi-variant signatures with weighted randomization and theme-native UI.",
+  "type": "roundcube-plugin",
+  "version": "1.0",
+  "license": "MIT",
+    "authors": [
+        {
+            "name": "Gene Hawkins",
+            "email": "texxasrulez@yahoo.com",
+            "role": "Lead"
+        }
+    ],
+  "require": {
+    "php": ">=7.4"
+  },
+  "extra": {
+    "roundcube": {
+      "min-version": "1.5.0",
+      "max-version": "2.99.99",
+      "plugin": "scheduled_sending"
+    }
+  },
+  "autoload": {
+    "classmap": [
+      "scheduled_sending.php"
+    ]
+  }
+}
