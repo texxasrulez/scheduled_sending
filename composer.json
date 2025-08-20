@@ -4,7 +4,11 @@
   "homepage": "https://github.com/texxasrulez/scheduled_sending",
   "type": "roundcube-plugin",
   "version": "1.0",
-  "license": "MIT",
+  "support": {
+    "issues": "https://github.com/texxasrulez/scheduled_sending/issues",
+    "source": "https://github.com/texxasrulez/scheduled_sending"
+  },
+  "license": "GPL-3.0",
     "authors": [
         {
             "name": "Gene Hawkins",
