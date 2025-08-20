@@ -7,7 +7,19 @@ require_once __DIR__ . '/queue.inc.php';
  */
 class scheduled_sending extends rcube_plugin
 {
-    // SS: normalize trivial HTML to text/plain, strip RC signature placeholder
+    
+    // Unified debug logger; respects config('scheduled_debug', false)
+    private function ss_debug($payload) {
+        try {
+            $rc = $this->rc ?: rcmail::get_instance();
+            if ($rc && $rc->config->get('scheduled_debug', false)) {
+                $this->ss_debug($payload);
+            }
+        } catch (Exception $e) {
+            // never let logging break sending
+        }
+    }
+// SS: normalize trivial HTML to text/plain, strip RC signature placeholder
     private function _ss_is_semantically_plain_html($html, $text_guess='')
     {
         if (!is_string($html) || $html === '') return true;
@@ -113,7 +125,7 @@ class scheduled_sending extends rcube_plugin
             }
 
             if (!$uid_candidate) {
-                rcube::write_log('scheduled_sending', array('msg'=>'_ss_try_fetch_draft_mime no_candidate','subject'=>$subject));
+                $this->ss_debug(array('msg'=>'_ss_try_fetch_draft_mime no_candidate','subject'=>$subject));
                 return '';
             }
 
@@ -135,20 +147,20 @@ class scheduled_sending extends rcube_plugin
             }
 
             if ($raw === '') {
-                rcube::write_log('scheduled_sending', array('msg'=>'_ss_try_fetch_draft_mime empty_raw','uid'=>$uid_candidate,'via'=>$picked_via));
+                $this->ss_debug(array('msg'=>'_ss_try_fetch_draft_mime empty_raw','uid'=>$uid_candidate,'via'=>$picked_via));
                 return '';
             }
 
             // Heuristic: require MIME headers and preferably multipart if we expect attachments
             $has_mime = (stripos($raw, "MIME-Version:") !== false);
             $is_multipart = (stripos($raw, "Content-Type: multipart/") !== false);
-            rcube::write_log('scheduled_sending', array('msg'=>'_ss_try_fetch_draft_mime picked','uid'=>$uid_candidate,'via'=>$picked_via,'mime'=>$has_mime,'multipart'=>$is_multipart));
+            $this->ss_debug(array('msg'=>'_ss_try_fetch_draft_mime picked','uid'=>$uid_candidate,'via'=>$picked_via,'mime'=>$has_mime,'multipart'=>$is_multipart));
 
             if (!$has_mime) return '';
             // Don't *require* multipart — user might send no attachments — but prefer it
             return $raw;
         } catch (\Exception $e) {
-            rcube::write_log('scheduled_sending', array('msg'=>'_ss_try_fetch_draft_mime fail','err'=>$e->getMessage()));
+            $this->ss_debug(array('msg'=>'_ss_try_fetch_draft_mime fail','err'=>$e->getMessage()));
             return '';
         }
     }
@@ -189,7 +201,7 @@ if (session_status() !== PHP_SESSION_ACTIVE) { @session_start(); }
             foreach ($sess as $k=>$v) {
                 if (stripos($k, 'compose') !== false) $compose_keys[] = $k;
             }
-            rcube::write_log('scheduled_sending', array('msg'=>'compose_session_keys','keys'=>$compose_keys));
+            $this->ss_debug(array('msg'=>'compose_session_keys','keys'=>$compose_keys));
 
             // If compose_id is present, directly inspect its bucket first
             if ($compose_id) {
@@ -202,13 +214,13 @@ if (session_status() !== PHP_SESSION_ACTIVE) { @session_start(); }
                 if (is_array($bucket)) {
                     // Log shallow keys from this bucket
                     $bk = array_keys($bucket);
-                    rcube::write_log('scheduled_sending', array('msg'=>'compose_bucket_keys','compose_id'=>$compose_id,'keys'=>$bk));
+                    $this->ss_debug(array('msg'=>'compose_bucket_keys','compose_id'=>$compose_id,'keys'=>$bk));
 
                     // Common Roundcube 1.5/1.6: $bucket['attachments'] is an array keyed by upload-id
                     if (isset($bucket['attachments']) && is_array($bucket['attachments'])) {
                         foreach ($bucket['attachments'] as $akey=>$aval) {
                             // Log keys of each attachment (no values)
-                            if (is_array($aval)) rcube::write_log('scheduled_sending', array('msg'=>'compose_bucket_attachment_keys','aid'=>$akey,'keys'=>array_keys($aval)));
+                            if (is_array($aval)) $this->ss_debug(array('msg'=>'compose_bucket_attachment_keys','aid'=>$akey,'keys'=>array_keys($aval)));
                             // Try to resolve a readable path
                             $candidate = null;
                             if (isset($aval['path'])) $candidate = $aval['path'];
@@ -235,12 +247,12 @@ if (session_status() !== PHP_SESSION_ACTIVE) { @session_start(); }
                                 $type = isset($aval['mimetype']) ? $aval['mimetype'] : (isset($aval['type']) ? $aval['type'] : 'application/octet-stream');
                                 $attachments[$akey] = array('name'=>$name,'type'=>$type,'path'=>$candidate);
                             } else {
-                                rcube::write_log('scheduled_sending', array('msg'=>'compose_attach_unreadable','aid'=>$akey));
+                                $this->ss_debug(array('msg'=>'compose_attach_unreadable','aid'=>$akey));
                             }
                         }
                     }
                 } else {
-                    rcube::write_log('scheduled_sending', array('msg'=>'compose_bucket_missing','compose_id'=>$compose_id));
+                    $this->ss_debug(array('msg'=>'compose_bucket_missing','compose_id'=>$compose_id));
                 }
             }
 
@@ -311,7 +323,7 @@ if (session_status() !== PHP_SESSION_ACTIVE) { @session_start(); }
                 if (count($filtered)) $attachments = $filtered;
             }
 
-            rcube::write_log('scheduled_sending', array('msg'=>'compose_session_found_attach','count'=>count($attachments)));
+            $this->ss_debug(array('msg'=>'compose_session_found_attach','count'=>count($attachments)));
 
             if (!count($attachments)) return '';
 
@@ -350,10 +362,10 @@ if (session_status() !== PHP_SESSION_ACTIVE) { @session_start(); }
             $closing = '--' . $boundary . '--' . $nl;
 
             $raw = implode($nl, $headers) . $nl . $nl . $body_part . $att_parts . $closing;
-            rcube::write_log('scheduled_sending', array('msg'=>'compose_mime_built','compose_id'=>$compose_id,'attachments'=>count($attachments)));
+            $this->ss_debug(array('msg'=>'compose_mime_built','compose_id'=>$compose_id,'attachments'=>count($attachments)));
             return $raw;
         } catch (\Exception $e) {
-            rcube::write_log('scheduled_sending', array('msg'=>'compose_mime_error','err'=>$e->getMessage()));
+            $this->ss_debug(array('msg'=>'compose_mime_error','err'=>$e->getMessage()));
             return '';
         }
     }
@@ -401,10 +413,10 @@ if (session_status() !== PHP_SESSION_ACTIVE) { @session_start(); }
             $closing = '--' . $boundary . '--' . $nl;
 
             $raw = implode($nl, $headers) . $nl . $nl . $body_part . $att_parts . $closing;
-            rcube::write_log('scheduled_sending', array('msg'=>'json_mime_built','attachments'=>count($attach_list)));
+            $this->ss_debug(array('msg'=>'json_mime_built','attachments'=>count($attach_list)));
             return $raw;
         } catch (\Exception $e) {
-            rcube::write_log('scheduled_sending', array('msg'=>'json_mime_error','err'=>$e->getMessage()));
+            $this->ss_debug(array('msg'=>'json_mime_error','err'=>$e->getMessage()));
             return '';
         }
     }
@@ -466,7 +478,7 @@ if (session_status() !== PHP_SESSION_ACTIVE) { @session_start(); }
     private function log($msg, $ctx = array())
     {
         // be defensive: only log if RC logger available
-        if (function_exists('write_log') && $this->rc->config->get('scheduled_debug', true)) {
+        if (function_exists('write_log') && $this->rc->config->get('scheduled_debug', false)) {
             $entry = array('msg'=>$msg,'time'=>gmdate('c'),'ctx'=>$ctx);
             write_log($this->logname, $entry);
         }
@@ -617,9 +629,9 @@ HTML;
                     '_schedule_tzoffset' => $post('_schedule_tzoffset'),
                 ),
             );
-            rcube::write_log('scheduled_sending', $dbg);
+            $this->ss_debug($dbg);
         } catch (Exception $e) {
-            rcube::write_log('scheduled_sending', array('msg'=>'tz_debug_error','err'=>$e->getMessage()));
+            $this->ss_debug(array('msg'=>'tz_debug_error','err'=>$e->getMessage()));
         }
         // ===== SS TZ DEBUG END =====
 
@@ -642,14 +654,14 @@ HTML;
             if ($is_utc && $incoming) {
                 // Client already sent UTC string
                 $scheduled_utc = trim($incoming);
-                rcube::write_log('scheduled_sending', array('msg'=>'tz skip (client utc)','scheduled_at'=>$scheduled_utc));
+                $this->ss_debug(array('msg'=>'tz skip (client utc)','scheduled_at'=>$scheduled_utc));
             }
             elseif ($sched_ts) {
                 // Epoch seconds are absolute UTC
                 $ts = (int)$sched_ts;
                 if ($ts > 0) {
                     $scheduled_utc = gmdate('Y-m-d H:i:s', $ts);
-                    rcube::write_log('scheduled_sending', array('msg'=>'tz from _schedule_ts','scheduled_at'=>$scheduled_utc));
+                    $this->ss_debug(array('msg'=>'tz from _schedule_ts','scheduled_at'=>$scheduled_utc));
                 }
             }
             else {
@@ -677,7 +689,7 @@ HTML;
                     if ($ts !== false) {
                         $ts += $off * 60;
                         $scheduled_utc = gmdate('Y-m-d H:i:s', $ts);
-                        rcube::write_log('scheduled_sending', array('msg'=>'tz normalized','scheduled_at'=>$scheduled_utc,'tz_offset'=>$off));
+                        $this->ss_debug(array('msg'=>'tz normalized','scheduled_at'=>$scheduled_utc,'tz_offset'=>$off));
                     }
                 }
             }
@@ -686,10 +698,10 @@ HTML;
                 $_REQUEST['scheduled_at'] = $_POST['scheduled_at'] = $_GET['scheduled_at'] = $scheduled_utc;
             }
         } catch (Exception $e) {
-            rcube::write_log('scheduled_sending', array('msg'=>'tz normalize error','err'=>$e->getMessage()));
+            $this->ss_debug(array('msg'=>'tz normalize error','err'=>$e->getMessage()));
         }
 $rc = $this->rc;
-        rcube::write_log('scheduled_sending', array('msg'=>'action_schedule start','time'=>date('c'),'framed'=>(int)$rc->output->framed));
+        $this->ss_debug(array('msg'=>'action_schedule start','time'=>date('c'),'framed'=>(int)$rc->output->framed));
 
         // pull time
         $when    = rcube_utils::get_input_value('_schedule_at', rcube_utils::INPUT_POST);
@@ -791,19 +803,19 @@ $rc = $this->rc;
                         }
                         if ($raw_try !== '') {
                             $draft_mime = $raw_try;
-                            rcube::write_log('scheduled_sending', array('msg'=>'draft_uid_used','uid'=>$draft_uid_post));
+                            $this->ss_debug(array('msg'=>'draft_uid_used','uid'=>$draft_uid_post));
                         } else {
-                            rcube::write_log('scheduled_sending', array('msg'=>'draft_uid_empty_raw','uid'=>$draft_uid_post));
+                            $this->ss_debug(array('msg'=>'draft_uid_empty_raw','uid'=>$draft_uid_post));
                         }
                     }
                 } catch (Exception $e) {
-                    rcube::write_log('scheduled_sending', array('msg'=>'draft_uid_fetch_err','err'=>$e->getMessage()));
+                    $this->ss_debug(array('msg'=>'draft_uid_fetch_err','err'=>$e->getMessage()));
                 }
             }
             if ($draft_mime === '') {
                 // Probe: log what client thinks about attachments
                 $probe = rcube_utils::get_input_value('_ss_attach_probe', rcube_utils::INPUT_POST, true);
-                if ($probe) { rcube::write_log('scheduled_sending', array('msg'=>'attach_probe_client', 'probe'=>$probe)); }
+                if ($probe) { $this->ss_debug(array('msg'=>'attach_probe_client', 'probe'=>$probe)); }
             
                 $draft_mime = $this->_ss_try_fetch_draft_mime($subject, $from);
             }
@@ -817,17 +829,17 @@ $rc = $this->rc;
                     $built = $this->_ss_build_mime_from_compose($compose_id, $from, $to, $cc, $bcc, $subject, $body, $is_html, $attach_ids);
                     if ($built !== '') {
                         $draft_mime = $built;
-                        rcube::write_log('scheduled_sending', array('msg'=>'compose_mime_used','compose_id'=>$compose_id));
+                        $this->ss_debug(array('msg'=>'compose_mime_used','compose_id'=>$compose_id));
                     } else {
-                        rcube::write_log('scheduled_sending', array('msg'=>'compose_mime_not_built','compose_id'=>$compose_id));
+                        $this->ss_debug(array('msg'=>'compose_mime_not_built','compose_id'=>$compose_id));
                     }
                 } else {
-                    rcube::write_log('scheduled_sending', array('msg'=>'compose_id_missing'));
+                    $this->ss_debug(array('msg'=>'compose_id_missing'));
                 }
             }
 
-            rcube::write_log('scheduled_sending', array('msg'=>'draft_probe','used'=>($draft_mime!==''),'subject'=>$subject,'uid_post'=>$draft_uid_post));
-            rcube::write_log('scheduled_sending', array('msg'=>'draft_probe','used'=>($draft_mime!==''),'subject'=>$subject));
+            $this->ss_debug(array('msg'=>'draft_probe','used'=>($draft_mime!==''),'subject'=>$subject,'uid_post'=>$draft_uid_post));
+            $this->ss_debug(array('msg'=>'draft_probe','used'=>($draft_mime!==''),'subject'=>$subject));
             if ($draft_mime !== '') {
                 $raw_mime = $draft_mime;
             } else {
@@ -841,9 +853,9 @@ $rc = $this->rc;
                 $built_auto = $this->_ss_build_mime_from_compose($compose_id, $from, $to, $cc, $bcc, $subject, $body, $is_html, isset($attach_ids) ? $attach_ids : array());
                 if ($built_auto !== '') {
                     $raw_mime = $built_auto;
-                    rcube::write_log('scheduled_sending', array('msg'=>'auto_compose_fallback_used','compose_id'=>$compose_id));
+                    $this->ss_debug(array('msg'=>'auto_compose_fallback_used','compose_id'=>$compose_id));
                 } else {
-                    rcube::write_log('scheduled_sending', array('msg'=>'auto_compose_fallback_failed'));
+                    $this->ss_debug(array('msg'=>'auto_compose_fallback_failed'));
                 }
             }
 
@@ -863,7 +875,7 @@ $rc = $this->rc;
                     $storage->create_folder($sentmb, true);
                 }
                 $saved = $storage->save_message($sentmb, $raw_mime, null, false, array('SEEN'));
-                rcube::write_log('scheduled_sending', array('msg'=>'initial saved to sent','ok'=>(bool)$saved,'folder'=>$sentmb));
+                $this->ss_debug(array('msg'=>'initial saved to sent','ok'=>(bool)$saved,'folder'=>$sentmb));
                 $meta['initial_saved_in'] = 'Sent';
                 if ($saved && isset($job_id) && $job_id) {
                     if (!is_array($meta)) { $meta = array(); }
@@ -872,7 +884,7 @@ $rc = $this->rc;
                 }
             }
         } catch (Exception $e) {
-            rcube::write_log('scheduled_sending', array('msg'=>'draft save error','err'=>$e->getMessage()));
+            $this->ss_debug(array('msg'=>'draft save error','err'=>$e->getMessage()));
         }
 
 
@@ -880,7 +892,7 @@ $rc = $this->rc;
 
         // Friendly toast back to client
         if ($ok) {
-            rcube::write_log('scheduled_sending', array('msg'=>'schedule success','time'=>date('c')));
+            $this->ss_debug(array('msg'=>'schedule success','time'=>date('c')));
             // Build local wall-time string for toast
             $offmin = (int) rcube_utils::get_input_value('_schedule_tzoffset', rcube_utils::INPUT_POST);
             $local_epoch = $epoch;
@@ -926,7 +938,7 @@ $rc = $this->rc;
         $token = rcube_utils::get_input_value('_token', rcube_utils::INPUT_GPC);
         $need  = $cfg->get('scheduled_sending_worker_token', null);
         if (!$need || !$token || !hash_equals((string)$need, (string)$token)) {
-            rcube::write_log('scheduled_sending', array('msg'=>'send_due denied','time'=>date('c'),'remote'=>$_SERVER['REMOTE_ADDR'] ?? ''));
+            $this->ss_debug(array('msg'=>'send_due denied','time'=>date('c'),'remote'=>$_SERVER['REMOTE_ADDR'] ?? ''));
             header('HTTP/1.1 403 Forbidden'); echo 'forbidden'; exit;
         }
 
@@ -943,7 +955,7 @@ $rc = $this->rc;
 
         $rows = array();
         while ($sel && ($r = $db->fetch_assoc($sel))) $rows[] = $r;
-        rcube::write_log('scheduled_sending', array('msg'=>'worker scan','time'=>date('c'),'count'=>count($rows)));
+        $this->ss_debug(array('msg'=>'worker scan','time'=>date('c'),'count'=>count($rows)));
 
         $sent_ok = 0;
         foreach ($rows as $row) {
@@ -951,7 +963,7 @@ $rc = $this->rc;
             $raw = (string)$row['raw_mime'];
             if ($raw === '') {
                 $db->query("UPDATE $table SET status = 'error', updated_at = NOW() WHERE id = ?", $id);
-                rcube::write_log('scheduled_sending', array('msg'=>'empty raw_mime','id'=>$id));
+                $this->ss_debug(array('msg'=>'empty raw_mime','id'=>$id));
                 continue;
             }
 
@@ -981,11 +993,11 @@ $rc = $this->rc;
                 }
 
                 $ok = @mail($rcpts, $subj, $body, $hdrblock, $params);
-                rcube::write_log('scheduled_sending', array('msg'=>'worker mail()','id'=>$id,'ok'=>(bool)$ok,'rcpts'=>$rcpts));
+                $this->ss_debug(array('msg'=>'worker mail()','id'=>$id,'ok'=>(bool)$ok,'rcpts'=>$rcpts));
             } else {
                 // dry-run
                 $ok = true;
-                rcube::write_log('scheduled_sending', array('msg'=>'worker dry-run','id'=>$id));
+                $this->ss_debug(array('msg'=>'worker dry-run','id'=>$id));
             }
 
             
@@ -1022,7 +1034,7 @@ $rc = $this->rc;
                         }
                     }
                 } catch (\Exception $e) {
-                    rcube::write_log('scheduled_sending', array('msg'=>'worker imap err','err'=>$e->getMessage()));
+                    $this->ss_debug(array('msg'=>'worker imap err','err'=>$e->getMessage()));
                 }
             }
  else {
@@ -1058,7 +1070,7 @@ $rc = $this->rc;
     // Run worker very early (before auth) when requested
     public function on_startup($args)
     {
-        rcube::write_log('scheduled_sending', array('msg'=>'startup hook','task'=>$this->rc->task,'action'=>rcube_utils::get_input_value('_action', rcube_utils::INPUT_GPC)));
+        $this->ss_debug(array('msg'=>'startup hook','task'=>$this->rc->task,'action'=>rcube_utils::get_input_value('_action', rcube_utils::INPUT_GPC)));
         $action = rcube_utils::get_input_value('_action', rcube_utils::INPUT_GPC);
 
         // If login bounced our request, original params are in _url

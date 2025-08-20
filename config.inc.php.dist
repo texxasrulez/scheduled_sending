@@ -1,18 +1,17 @@
 <?php
-$config['scheduled_sending_table']  = 'scheduled_queue';
-$config['scheduled_worker_batch']   = 20;
-$config['scheduled_timezone']    = 'America/Chicago'; // optional; storing UTC regardless
-$config['scheduled_debug']          = false;
-$config['scheduled_force_plugin_assets'] = false;
-$config['scheduled_show_fab']       = true;
+$config['scheduled_sending_table']  		= 'scheduled_queue';
+$config['scheduled_worker_batch']   		= 20;
+$config['scheduled_timezone']    			= 'America/Chicago'; // optional; storing UTC regardless
+$config['scheduled_debug']          		= false;
+$config['scheduled_force_plugin_assets'] 	= false;
+$config['scheduled_show_fab']       		= true;
 
-$config['scheduled_sending_worker_token'] = '32_character_key';
-$config['scheduled_sending_delivery'] = 'smtp'; // 'mail' or 'none' (dry-run)
-$config['scheduled_sending_batch'] = 25;        // optional
-$config['scheduled_sending_sent_folder'] = 'Sent'; // optional
+$config['scheduled_sending_worker_token'] 	= '32_character_key';
+$config['scheduled_sending_delivery'] 		= 'smtp'; // 'mail' or 'none' (dry-run)
+$config['scheduled_sending_batch'] 			= 25;        // optional
+$config['scheduled_sending_sent_folder'] 	= 'Sent'; // optional
 
-$config['db_table_scheduled_sending'] = 'scheduled_queue';
+$config['db_table_scheduled_sending'] 		= 'scheduled_queue';
 
-$config['scheduled_sending_lock_key'] = 'scheduled_sending_worker';
-$config['scheduled_sending_lock_timeout'] = 10; // seconds
-
+$config['scheduled_sending_lock_key'] 		= 'scheduled_sending_worker';
+$config['scheduled_sending_lock_timeout'] 	= 10; // seconds

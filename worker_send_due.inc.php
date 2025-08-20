@@ -1,4 +1,15 @@
 <?php
+// helper to respect scheduled_debug
+if (!function_exists('ss_debug')) {
+    function ss_debug($payload) {
+        try {
+            $rc = rcmail::get_instance();
+            if ($rc && $rc->config->get('scheduled_debug', false)) {
+                ss_debug($payload);
+            }
+        } catch (Exception $e) {}
+    }
+}
 // Worker include for Scheduled Sending
 // Processes due messages with duplicate-send protection and retry/backoff.
 
@@ -80,13 +91,11 @@ $res = $db->query($sql);if (!$res) {
             }
 
             // Envelope sender
-            $env_from = '';
-            if (isset($headers_arr['Return-Path'])) $env_from = $headers_arr['Return-Path'];
-            if (!$env_from && isset($headers_arr['From'])) $env_from = $headers_arr['From'];
-            if (preg_match('/<([^>]+)>/', $env_from, $mm)) $env_from = $mm[1];
-            $env_from = trim($env_from);
-
-            // Recipients from headers
+$env_from = '';
+if (isset($headers_arr['From'])) $env_from = $headers_arr['From'];
+if (preg_match('/<([^>]+)>/', $env_from, $mm)) $env_from = $mm[1];
+$env_from = trim($env_from);
+// Recipients from headers
             $to  = isset($headers_arr['To'])  ? $headers_arr['To']  : '';
             $cc  = isset($headers_arr['Cc'])  ? $headers_arr['Cc']  : '';
             $bcc = isset($headers_arr['Bcc']) ? $headers_arr['Bcc'] : '';
@@ -172,7 +181,7 @@ $res = $db->query($sql);if (!$res) {
                     foreach ($hdr_arr as $k=>$v) $hdr_lines[] = $k.': '.$v;
                     $hdr_str = implode("
 ", $hdr_lines);
-                    $ok = mail($to_hdr, $subject, $raw_body, $hdr_str);
+                    $ok = mail($to_hdr, $subject, $raw_body, $hdr_str, '-f' . $env_from);
                     if ($ok) {
                         $err = '';
                         $this->log('fallback mail() sent', array('id'=>$id));
@@ -194,7 +203,7 @@ $res = $db->query($sql);if (!$res) {
                         $hdr_lines = array();
                         foreach ($headers_arr as $k=>$v) $hdr_lines[] = $k.': '.$v;
                         $hdr_str = implode("\r\n", $hdr_lines);
-                        $ok = mail($to_hdr, $subject, $raw_body, $hdr_str);
+                        $ok = mail($to_hdr, $subject, $raw_body, $hdr_str, '-f' . $env_from);
                         if (!$ok) $err = 'mail() returned false'; else if (empty($err)) { $err = 'mail() returned false (no details)'; }
                     }
                 }
@@ -243,7 +252,7 @@ $res = $db->query($sql);if (!$res) {
                         }
                     }
                 } catch (\Exception $e) {
-                    rcube::write_log('scheduled_sending', array('msg'=>'imap post-send', 'err'=>$e->getMessage()));
+                    ss_debug(array('msg'=>'imap post-send', 'err'=>$e->getMessage()));
                 }
 
                 $db->query("DELETE FROM $table WHERE id=?", $id);
