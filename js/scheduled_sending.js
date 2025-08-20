@@ -40,6 +40,36 @@
     try { window.onbeforeunload = null; } catch(e){}
     var url = (window.rcmail ? rcmail.url('plugin.scheduled_sending.schedule') : '?_task=mail&_action=plugin.scheduled_sending.schedule');
     var fd = new FormData(form);
+
+    // SS: ensure editor content is flushed and included
+    try {
+      if (window.tinyMCE && tinyMCE.triggerSave) tinyMCE.triggerSave();
+    } catch(e){}
+    try {
+      if (window.rcmail && rcmail.editor && typeof rcmail.editor.save === 'function') rcmail.editor.save();
+    } catch(e){}
+    // Collect body
+    var is_html = false, body_html = '', body_text = '';
+    try {
+      if (window.tinyMCE && tinyMCE.activeEditor) {
+        body_html = tinyMCE.activeEditor.getContent({format:'html'});
+        body_text = tinyMCE.activeEditor.getContent({format:'text'});
+        is_html = true;
+      }
+    } catch(e){}
+    if (!body_text) {
+      var ta = form.querySelector('textarea[name="_message"]');
+      if (ta) body_text = ta.value;
+    }
+    if (is_html && body_html) {
+      fd.set('_message_html', body_html);
+      fd.set('_is_html', '1');
+    } else if (body_text) {
+      fd.set('_message', body_text);
+      try { fd.delete('_message_html'); } catch(e){}
+      try { fd.delete('_is_html'); } catch(e){}
+    }
+
     fd.append('_schedule_at', i.value);
 
     fetch(url, { method:'POST', body: fd, credentials:'same-origin' })

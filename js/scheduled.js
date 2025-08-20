@@ -43,6 +43,60 @@
       data['_schedule_ts'] = Math.floor(d.getTime()/1000);
       data['_schedule_tzoffset'] = - (new Date().getTimezoneOffset());
 
+      // SS helper: decide if HTML is semantically plain (only <p>/<br> and optional RC sig placeholder)
+      function __ss_is_plain_html(html, text){
+        try{
+          if (!html) return true;
+          var s = (''+html);
+          // remove Roundcube signature placeholder blocks
+          s = s.replace(/<div[^>]*id=['"]?_rc_sig['"]?[^>]*>[\s\S]*?<\/div>/gi, '');
+          // strip leading/trailing whitespace and non-breaking spaces
+          s = s.replace(/&nbsp;/gi,' ').replace(/\s+/g,' ');
+          // only allow p and br tags; detect others
+          if (/<(?!\/?(p|br)\b)/i.test(s)) return false;
+          // convert basic HTML structure to text for rough equivalence
+          var t = s;
+          // normalize paragraphs to double newlines
+          t = t.replace(/<\/p>\s*<p[^>]*>/gi, '\n\n');
+          t = t.replace(/<br\s*\/?>/gi, '\n');
+          t = t.replace(/<\/?p[^>]*>/gi, '');
+          // remove remaining tags (should be none)
+          t = t.replace(/<[^>]+>/g, '');
+          t = t.replace(/\s+\n/g, '\n').replace(/\n\s+/g, '\n').trim();
+          var plain = (''+(text||'')).replace(/\s+\n/g,'\n').replace(/\n\s+/g,'\n').trim();
+          // Treat as plain if equal (or equal ignoring trailing newline)
+          if (t === plain || t === plain.replace(/\n+$/,'')) return true;
+          return false;
+        }catch(_){ return false; }
+      }
+
+
+      // SS: ensure body is included
+      try { if (window.tinyMCE && tinyMCE.triggerSave) tinyMCE.triggerSave(); } catch(_){}
+      try { if (window.rcmail && rcmail.editor && typeof rcmail.editor.save === 'function') rcmail.editor.save(); } catch(_){}
+      (function(){
+        var html = '', text = '';
+        try {
+          if (window.tinyMCE && tinyMCE.activeEditor) {
+            html = tinyMCE.activeEditor.getContent({format:'html'}) || '';
+            text = tinyMCE.activeEditor.getContent({format:'text'}) || '';
+          }
+        } catch(_){}
+        if (!text) {
+          var ta = form && form.querySelector && form.querySelector('textarea[name="_message"]');
+          if (ta) text = ta.value || '';
+        }
+        if (html && !__ss_is_plain_html(html, text)) {
+          data['_message_html'] = html;
+          data['_is_html'] = 1;
+        } else {
+          data['_message'] = text || '';
+          try { delete data['_message_html']; } catch(_){}
+          try { delete data['_is_html']; } catch(_){}
+        }
+      })();
+
+
       
 /* SS: client UTC encode v57 */
 try {
@@ -131,6 +185,51 @@ try {
       rcmail.http_post = function(action, data, lock){
         var isSched = (action === 'plugin.scheduled_sending.schedule');
         if (isSched) {
+          // SS: enforce body fields on final post (prefer plain text when HTML is trivial wrappers)
+          try { if (window.tinyMCE && tinyMCE.triggerSave) tinyMCE.triggerSave(); } catch(_){}
+          try { if (window.rcmail && rcmail.editor && typeof rcmail.editor.save === 'function') rcmail.editor.save(); } catch(_){}
+          try {
+            if (data && typeof data === 'object' && (!data._message && !data._message_html)) {
+              var form = document.getElementById('composeform') || document.querySelector('form#compose-content form');
+              var html = '', text = '';
+              try {
+                if (window.tinyMCE && tinyMCE.activeEditor) {
+                  html = tinyMCE.activeEditor.getContent({format:'html'}) || '';
+                  text = tinyMCE.activeEditor.getContent({format:'text'}) || '';
+                }
+              } catch(_){}
+              if (!text && form) {
+                var ta = form.querySelector('textarea[name="_message"]');
+                if (ta) text = ta.value || '';
+              }
+              if (html && !__ss_is_plain_html(html, text)) { data._message_html = html; data._is_html = 1; }
+              else { data._message = text || ''; }
+            }
+          } catch(_){}
+
+
+          // SS: enforce body fields on final post
+          try { if (window.tinyMCE && tinyMCE.triggerSave) tinyMCE.triggerSave(); } catch(_){}
+          try { if (window.rcmail && rcmail.editor && typeof rcmail.editor.save === 'function') rcmail.editor.save(); } catch(_){}
+          try {
+            if (data && typeof data === 'object' && (!data._message && !data._message_html)) {
+              var form = document.getElementById('composeform') || document.querySelector('form#compose-content form');
+              var html = '', text = '';
+              try {
+                if (window.tinyMCE && tinyMCE.activeEditor) {
+                  html = tinyMCE.activeEditor.getContent({format:'html'}) || '';
+                  text = tinyMCE.activeEditor.getContent({format:'text'}) || '';
+                }
+              } catch(_){}
+              if (!text && form) {
+                var ta = form.querySelector('textarea[name="_message"]');
+                if (ta) text = ta.value || '';
+              }
+              if (html && html.replace(/<[^>]*>/g,'').trim() !== '') { data._message_html = html; data._is_html = 1; }
+              else if (typeof text === 'string') { data._message = text; }
+            }
+          } catch(_){}
+
           /* TZ attach */
 
 /* SS: client UTC encode */
@@ -162,6 +261,51 @@ try {
         }
         var ret = __orig_post.apply(rcmail, arguments);
         if (isSched) {
+          // SS: enforce body fields on final post (prefer plain text when HTML is trivial wrappers)
+          try { if (window.tinyMCE && tinyMCE.triggerSave) tinyMCE.triggerSave(); } catch(_){}
+          try { if (window.rcmail && rcmail.editor && typeof rcmail.editor.save === 'function') rcmail.editor.save(); } catch(_){}
+          try {
+            if (data && typeof data === 'object' && (!data._message && !data._message_html)) {
+              var form = document.getElementById('composeform') || document.querySelector('form#compose-content form');
+              var html = '', text = '';
+              try {
+                if (window.tinyMCE && tinyMCE.activeEditor) {
+                  html = tinyMCE.activeEditor.getContent({format:'html'}) || '';
+                  text = tinyMCE.activeEditor.getContent({format:'text'}) || '';
+                }
+              } catch(_){}
+              if (!text && form) {
+                var ta = form.querySelector('textarea[name="_message"]');
+                if (ta) text = ta.value || '';
+              }
+              if (html && !__ss_is_plain_html(html, text)) { data._message_html = html; data._is_html = 1; }
+              else { data._message = text || ''; }
+            }
+          } catch(_){}
+
+
+          // SS: enforce body fields on final post
+          try { if (window.tinyMCE && tinyMCE.triggerSave) tinyMCE.triggerSave(); } catch(_){}
+          try { if (window.rcmail && rcmail.editor && typeof rcmail.editor.save === 'function') rcmail.editor.save(); } catch(_){}
+          try {
+            if (data && typeof data === 'object' && (!data._message && !data._message_html)) {
+              var form = document.getElementById('composeform') || document.querySelector('form#compose-content form');
+              var html = '', text = '';
+              try {
+                if (window.tinyMCE && tinyMCE.activeEditor) {
+                  html = tinyMCE.activeEditor.getContent({format:'html'}) || '';
+                  text = tinyMCE.activeEditor.getContent({format:'text'}) || '';
+                }
+              } catch(_){}
+              if (!text && form) {
+                var ta = form.querySelector('textarea[name="_message"]');
+                if (ta) text = ta.value || '';
+              }
+              if (html && html.replace(/<[^>]*>/g,'').trim() !== '') { data._message_html = html; data._is_html = 1; }
+              else if (typeof text === 'string') { data._message = text; }
+            }
+          } catch(_){}
+
           setTimeout(function(){
             try{
               if (rcmail.command) {

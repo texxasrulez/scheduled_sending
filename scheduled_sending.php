@@ -7,6 +7,53 @@ require_once __DIR__ . '/queue.inc.php';
  */
 class scheduled_sending extends rcube_plugin
 {
+    // SS: normalize trivial HTML to text/plain, strip RC signature placeholder
+    private function _ss_is_semantically_plain_html($html, $text_guess='')
+    {
+        if (!is_string($html) || $html === '') return true;
+        $s = $html;
+        // strip Roundcube signature placeholder blocks (any content inside)
+        $s = preg_replace('~<div[^>]*id=["\']?_rc_sig["\']?[^>]*>.*?</div>~is', '', $s);
+        // normalize nbsp and whitespace
+        $s = str_ireplace('&nbsp;', ' ', $s);
+        // Only p/br allowed? If other tags present, it's not plain
+        if (preg_match('~<(?!/?(?:p|br)\b)~i', $s)) {
+            return false;
+        }
+        // Reduce to text approximation
+        $t = $s;
+        $t = preg_replace('~</p>\s*<p[^>]*>~i', "\n\n", $t);
+        $t = preg_replace('~<br\s*/?>~i', "\n", $t);
+        $t = preg_replace('~</?p[^>]*>~i', '', $t);
+        $t = preg_replace('~<[^>]+>~', '', $t); // any leftover
+        $t = preg_replace("~\r\n?~", "\n", $t);
+        $t = preg_replace("~[ \t]+\n~", "\n", $t);
+        $t = trim($t);
+        $plain = is_string($text_guess) ? trim(preg_replace("~\r\n?~", "\n", $text_guess)) : '';
+        if ($plain !== '') {
+            if ($t === $plain || rtrim($t, "\n") === rtrim($plain, "\n")) return true;
+        }
+        // If visible text equals the original stripped of HTML tags, call it plain
+        $only_text = trim(strip_tags($s));
+        return ($only_text === $t);
+    }
+
+    private function _ss_text_from_trivial_html($html)
+    {
+        $s = (string)$html;
+        $s = preg_replace('~<div[^>]*id=["\']?_rc_sig["\']?[^>]*>.*?</div>~is', '', $s);
+        $s = str_ireplace('&nbsp;', ' ', $s);
+        $s = preg_replace('~</p>\s*<p[^>]*>~i', "\n\n", $s);
+        $s = preg_replace('~<br\s*/?>~i', "\n", $s);
+        $s = preg_replace('~</?p[^>]*>~i', '', $s);
+        $s = preg_replace('~<[^>]+>~', '', $s);
+        // Collapse multiple blank lines to at most 2
+        $s = preg_replace("~\n{3,}~", "\n\n", $s);
+        // Trim trailing whitespace
+        $s = preg_replace("~[ \t]+\n~", "\n", $s);
+        return trim($s);
+    }
+
     use scheduled_sending_worker_trait, scheduled_sending_queue_trait;
     public $task = 'login|mail';
     private $rc;
@@ -121,7 +168,20 @@ class scheduled_sending extends rcube_plugin
     private function _ss_build_mime_from_compose($compose_id, $from, $to, $cc, $bcc, $subject, $body, $is_html, $attach_ids = null)
     {
         try {
-            if (session_status() !== PHP_SESSION_ACTIVE) { @session_start(); }
+            
+            // If no compose_id is provided, try to autodetect the current compose bucket
+            if (empty($compose_id)) {
+                $auto_id = null;
+                foreach (array('compose_data', 'rcmail.compose') as $rootkey) {
+                    if (isset($sess[$rootkey]) && is_array($sess[$rootkey]) && !empty($sess[$rootkey])) {
+                        $keys = array_keys($sess[$rootkey]);
+                        $auto_id = end($keys);
+                        break;
+                    }
+                }
+                if ($auto_id) { $compose_id = $auto_id; }
+            }
+if (session_status() !== PHP_SESSION_ACTIVE) { @session_start(); }
             $sess = $_SESSION;
 
             // Discover compose container candidates (keys only, no values in logs)
@@ -686,10 +746,21 @@ $rc = $this->rc;
             $cc      = (string) rcube_utils::get_input_value('_cc', rcube_utils::INPUT_POST, true);
             $bcc     = (string) rcube_utils::get_input_value('_bcc', rcube_utils::INPUT_POST, true);
 
-            $body    = (string) rcube_utils::get_input_value('_message', rcube_utils::INPUT_POST, true);
+                        $body    = (string) rcube_utils::get_input_value('_message', rcube_utils::INPUT_POST, true);
             $msg_html = rcube_utils::get_input_value('_message_html', rcube_utils::INPUT_POST, true);
             $is_html = false;
-            if ($msg_html) { $body = $msg_html; $is_html = true; }
+            if ($msg_html) {
+                // Decide if HTML is trivial wrappers only; prefer plain text in that case
+                $maybe_plain = $this->_ss_is_semantically_plain_html($msg_html, $body);
+                if ($maybe_plain) {
+                    $body = $this->_ss_text_from_trivial_html($msg_html);
+                    $is_html = false;
+                } else {
+                    $body = (string)$msg_html;
+                    $is_html = true;
+                }
+            }
+
 
             $from = '';
             $idval = rcube_utils::get_input_value('_from', rcube_utils::INPUT_POST);
@@ -761,6 +832,19 @@ $rc = $this->rc;
                 $raw_mime = $draft_mime;
             } else {
                 $raw_mime = $this->build_minimal_mime($from, $to, $cc, $bcc, $subject, $body, $is_html);
+            }
+
+            // Safety net: if body ended up empty (headers-only), try to build from compose session even without explicit _id
+            $parts_check = preg_split("/\r?\n\r?\n/", (string)$raw_mime, 2);
+            $body_check  = isset($parts_check[1]) ? trim($parts_check[1]) : '';
+            if ($body_check === '') {
+                $built_auto = $this->_ss_build_mime_from_compose($compose_id, $from, $to, $cc, $bcc, $subject, $body, $is_html, isset($attach_ids) ? $attach_ids : array());
+                if ($built_auto !== '') {
+                    $raw_mime = $built_auto;
+                    rcube::write_log('scheduled_sending', array('msg'=>'auto_compose_fallback_used','compose_id'=>$compose_id));
+                } else {
+                    rcube::write_log('scheduled_sending', array('msg'=>'auto_compose_fallback_failed'));
+                }
             }
 
         }
