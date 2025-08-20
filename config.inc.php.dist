@@ -2,7 +2,7 @@
 $config['scheduled_sending_table']  		= 'scheduled_queue';
 $config['scheduled_worker_batch']   		= 20;
 $config['scheduled_timezone']    			= 'America/Chicago'; // optional; storing UTC regardless
-$config['scheduled_debug']          		= false;
+$config['scheduled_debug']          		= false; // Enable Debugging
 $config['scheduled_force_plugin_assets'] 	= false;
 $config['scheduled_show_fab']       		= true;
 
