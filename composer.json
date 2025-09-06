@@ -3,7 +3,7 @@
   "description": "Roundcube plugin: multi-variant signatures with weighted randomization and theme-native UI.",
   "homepage": "https://github.com/texxasrulez/scheduled_sending",
   "type": "roundcube-plugin",
-  "version": "1.0",
+  "version": "1.1",
   "license": "GPL-3.0",  
   "support": {
     "issues": "https://github.com/texxasrulez/scheduled_sending/issues",
