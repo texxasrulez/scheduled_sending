@@ -1,6 +1,6 @@
 {
   "name": "texxasrulez/scheduled_sending",
-  "description": "Roundcube plugin: multi-variant signatures with weighted randomization and theme-native UI.",
+  "description": "Roundcube plugin: Schedule to send emails at a later time.",
   "homepage": "https://github.com/texxasrulez/scheduled_sending",
   "type": "roundcube-plugin",
   "version": "1.1",
