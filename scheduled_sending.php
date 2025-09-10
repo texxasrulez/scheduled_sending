@@ -1033,6 +1033,8 @@ $rc = $this->rc;
                             }
                         }
                     }
+                    $db->query("UPDATE $table SET status = 'sent', updated_at = NOW() WHERE id = ?", $id);
+                    $sent_ok++;
                 } catch (\Exception $e) {
                     $this->ss_debug(array('msg'=>'worker imap err','err'=>$e->getMessage()));
                 }
