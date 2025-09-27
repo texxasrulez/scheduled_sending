@@ -67,7 +67,7 @@ class scheduled_sending extends rcube_plugin
     }
 
     use scheduled_sending_worker_trait, scheduled_sending_queue_trait;
-    public $task = 'login|mail';
+    public $task = 'login|mail|settings';
     private $rc;
     private $logname = 'scheduled_sending';
 
@@ -423,18 +423,23 @@ if (session_status() !== PHP_SESSION_ACTIVE) { @session_start(); }
 
     function init()
     {
+        $this->rc = rcmail::get_instance();
+
         // Queue UI actions
         $this->register_action('plugin.scheduled_sending.queue', array($this, 'action_queue'));
         $this->register_action('plugin.scheduled_sending.queue_list', array($this, 'action_queue_list'));
         $this->register_action('plugin.scheduled_sending.queue_cancel', array($this, 'action_queue_cancel'));
         $this->register_action('plugin.scheduled_sending.queue_reschedule', array($this, 'action_queue_reschedule'));
 
+        // Add hook for preferences sections
+        if ($this->rc->task == 'settings') {
+            $this->add_hook('preferences_sections_list', array($this, 'preferences_sections_list'));
+            $this->add_hook('preferences_list', array($this, 'preferences_list'));
         // Client command to open queue
-        if (rcmail::get_instance()->task == 'mail') {
+        } else if ($this->rc->task == 'mail') {
             $this->include_script('js/queue.js');
         }
-    
-        $this->rc = rcmail::get_instance();
+
         /* SS: early worker intercept (handles login bounce via _url) */
         $act = rcube_utils::get_input_value('_action', rcube_utils::INPUT_GPC);
         $urlq = rcube_utils::get_input_value('_url', rcube_utils::INPUT_GPC);
@@ -1118,5 +1123,74 @@ $rc = $this->rc;
             echo json_encode(array('ok'=>false, 'error'=>$e->getMessage()));
         }
         exit;
+    }
+
+    public function preferences_sections_list($args)
+    {
+        $args['list']['scheduled_sending'] = array('id' => 'scheduled_sending', 'section' => 'Scheduled Sending');
+        return $args;
+    }
+
+    public function preferences_list($args)
+    {
+        if ($args['section'] == 'scheduled_sending') {
+            $this->add_texts('localization', true);
+            $this->rc->output->set_pagetitle($this->gettext('scheduledmessages'));
+
+            // include the table class
+            $this->rc->output->include_script('list.js');
+            $table = new html_table(array('cols' => 6, 'class' => 'scheduled-messages-table', 'id' => 'scheduled-messages-table'));
+
+            $table->add_header(array('class' => 'id'), $this->gettext('id'));
+            $table->add_header(array('class' => 'scheduled_at'), $this->gettext('scheduled_at'));
+            $table->add_header(array('class' => 'subject'), $this->gettext('subject'));
+            $table->add_header(array('class' => 'to'), $this->gettext('to'));
+            $table->add_header(array('class' => 'status'), $this->gettext('status'));
+            $table->add_header(array('class' => 'created_at'), $this->gettext('created_at'));
+
+            $db = $this->rc->get_dbh();
+            $table_name = $this->rc->config->get('scheduled_sending_table', 'scheduled_queue');
+            $user_id = $this->rc->user->ID;
+
+            $sql = "SELECT id, scheduled_at, meta_json, status, created_at FROM {$table_name} WHERE user_id = ? AND status NOT IN ('sent', 'cancelled') ORDER BY scheduled_at ASC";
+            $res = $db->query($sql, $user_id);
+
+            while ($row = $db->fetch_assoc($res)) {
+                $meta = json_decode($row['meta_json'], true);
+                $to = isset($meta['to']) ? rcube::Q($meta['to']) : '';
+                $subject = isset($meta['subj']) ? rcube::Q($meta['subj']) : '';
+
+                $table->add_row();
+                $table->add(array('class' => 'id'), rcube::Q($row['id']));
+                $table->add(array('class' => 'scheduled_at'), rcube::Q($row['scheduled_at']));
+                $table->add(array('class' => 'subject'), $subject);
+                $table->add(array('class' => 'to'), $to);
+                $table->add(array('class' => 'status'), rcube::Q($row['status']));
+                $table->add(array('class' => 'created_at'), rcube::Q($row['created_at']));
+            }
+
+            $html = $table->show();
+
+            $script = <<<JS
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var saveButton = document.querySelector('.btn.btn-primary.submit');
+    if (saveButton) {
+        var formButtons = saveButton.closest('.formbuttons');
+        if (formButtons) {
+            formButtons.style.display = 'none';
+        }
+    }
+});
+</script>
+JS;
+            $html .= $script;
+
+            $args['blocks']['scheduled_sending'] = array(
+                'name' => $this->gettext('scheduledmessages'),
+                'content' => $html,
+            );
+        }
+        return $args;
     }
 }
