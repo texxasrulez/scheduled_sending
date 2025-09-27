@@ -429,6 +429,7 @@ if (session_status() !== PHP_SESSION_ACTIVE) { @session_start(); }
         $this->register_action('plugin.scheduled_sending.queue', array($this, 'action_queue'));
         $this->register_action('plugin.scheduled_sending.queue_list', array($this, 'action_queue_list'));
         $this->register_action('plugin.scheduled_sending.queue_cancel', array($this, 'action_queue_cancel'));
+        $this->register_action('plugin.scheduled_sending.queue_delete', array($this, 'action_queue_delete'));
         $this->register_action('plugin.scheduled_sending.queue_reschedule', array($this, 'action_queue_reschedule'));
 
         // Add hook for preferences sections
@@ -1134,12 +1135,13 @@ $rc = $this->rc;
     public function preferences_list($args)
     {
         if ($args['section'] == 'scheduled_sending') {
+            $this->include_stylesheet('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css');
             $this->add_texts('localization', true);
             $this->rc->output->set_pagetitle($this->gettext('scheduledmessages'));
 
             // include the table class
             $this->rc->output->include_script('list.js');
-            $table = new html_table(array('cols' => 6, 'class' => 'scheduled-messages-table', 'id' => 'scheduled-messages-table'));
+            $table = new html_table(array('cols' => 7, 'class' => 'scheduled-messages-table', 'id' => 'scheduled-messages-table'));
 
             $table->add_header(array('class' => 'id'), $this->gettext('id'));
             $table->add_header(array('class' => 'scheduled_at'), $this->gettext('scheduled_at'));
@@ -1147,6 +1149,7 @@ $rc = $this->rc;
             $table->add_header(array('class' => 'to'), $this->gettext('to'));
             $table->add_header(array('class' => 'status'), $this->gettext('status'));
             $table->add_header(array('class' => 'created_at'), $this->gettext('created_at'));
+            $table->add_header(array('class' => 'delete'), 'Delete');
 
             $db = $this->rc->get_dbh();
             $table_name = $this->rc->config->get('scheduled_sending_table', 'scheduled_queue');
@@ -1167,6 +1170,8 @@ $rc = $this->rc;
                 $table->add(array('class' => 'to'), $to);
                 $table->add(array('class' => 'status'), rcube::Q($row['status']));
                 $table->add(array('class' => 'created_at'), rcube::Q($row['created_at']));
+                $delete_button = '<a href="#" class="delete-scheduled-message" data-id="' . rcube::Q($row['id']) . '"><i class="fas fa-trash-alt"></i></a>';
+                $table->add(array('class' => 'delete'), $delete_button);
             }
 
             $html = $table->show();
@@ -1181,6 +1186,23 @@ document.addEventListener('DOMContentLoaded', function() {
             formButtons.style.display = 'none';
         }
     }
+
+    var deleteLinks = document.querySelectorAll('.delete-scheduled-message');
+    deleteLinks.forEach(function(link) {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            var messageId = this.getAttribute('data-id');
+            if (confirm('Are you sure you want to delete this scheduled message?')) {
+                rcmail.http_post('plugin.scheduled_sending.queue_delete', { '_id': messageId, '_token': rcmail.env.request_token }, function(response) {
+                    var row = link.closest('tr');
+                    if (row) {
+                        row.remove();
+                    }
+                    rcmail.display_message('Scheduled message deleted', 'confirmation');
+                });
+            }
+        });
+    });
 });
 </script>
 JS;
