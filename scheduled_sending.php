@@ -70,7 +70,6 @@ class scheduled_sending extends rcube_plugin
     public $task = 'login|mail|settings';
     private $rc;
     private $logname = 'scheduled_sending';
-
     
     /** 
      * Try to fetch the full raw MIME (with attachments) from the Drafts folder
@@ -164,8 +163,6 @@ class scheduled_sending extends rcube_plugin
             return '';
         }
     }
-
-
     
     /**
      * Build full MIME using Roundcube compose session (attachments in $_SESSION).
@@ -193,7 +190,7 @@ class scheduled_sending extends rcube_plugin
                 }
                 if ($auto_id) { $compose_id = $auto_id; }
             }
-if (session_status() !== PHP_SESSION_ACTIVE) { @session_start(); }
+			if (session_status() !== PHP_SESSION_ACTIVE) { @session_start(); }
             $sess = $_SESSION;
 
             // Discover compose container candidates (keys only, no values in logs)
@@ -255,7 +252,6 @@ if (session_status() !== PHP_SESSION_ACTIVE) { @session_start(); }
                     $this->ss_debug(array('msg'=>'compose_bucket_missing','compose_id'=>$compose_id));
                 }
             }
-
 
             // Gather possible attachment arrays by recursive walk (depth-limited)
             $attachments = array();
@@ -369,8 +365,6 @@ if (session_status() !== PHP_SESSION_ACTIVE) { @session_start(); }
             return '';
         }
     }
-
-
     
     /**
      * Build multipart from posted JSON attachments (name, type, content_b64).
@@ -463,8 +457,6 @@ if (session_status() !== PHP_SESSION_ACTIVE) { @session_start(); }
             exit;
         }
 
-
-
         // server handler
         $this->register_action('plugin.scheduled_sending.schedule', array($this, 'action_schedule'));
 
@@ -521,92 +513,92 @@ if (session_status() !== PHP_SESSION_ACTIVE) { @session_start(); }
 
         // inline fallback binder: uses RC's http_post, de-duped, no full form submit
         $inline = <<<HTML
-<script>
-(function(){
-  if (window.__SS_BOUND) return; // avoid double binding
-  window.__SS_BOUND = true;
+		<script>
+		(function(){
+		  if (window.__SS_BOUND) return; // avoid double binding
+		  window.__SS_BOUND = true;
 
-  function nowTs(){ return Math.floor(Date.now()/1000); }
+		  function nowTs(){ return Math.floor(Date.now()/1000); }
 
-  function bind(){
-    var btn = document.getElementById('ss-schedule-btn');
-    if (!btn) return;
-    var inflight = false;
-    btn.addEventListener('click', function(ev){
-      ev.preventDefault();
-      if (inflight) return;
-      var when = document.getElementById('ss-when');
-      if (!when || !when.value) { if (window.rcmail) rcmail.display_message('Pick a future time', 'error'); return; }
-      var d = new Date(when.value);
-      if (isNaN(d.getTime()) || d.getTime() <= Date.now()) { if (window.rcmail) rcmail.display_message('Pick a future time', 'error'); return; }
+		  function bind(){
+			var btn = document.getElementById('ss-schedule-btn');
+			if (!btn) return;
+			var inflight = false;
+			btn.addEventListener('click', function(ev){
+			  ev.preventDefault();
+			  if (inflight) return;
+			  var when = document.getElementById('ss-when');
+			  if (!when || !when.value) { if (window.rcmail) rcmail.display_message('Pick a future time', 'error'); return; }
+			  var d = new Date(when.value);
+			  if (isNaN(d.getTime()) || d.getTime() <= Date.now()) { if (window.rcmail) rcmail.display_message('Pick a future time', 'error'); return; }
 
-      var form = document.getElementById('composeform') || btn.closest('form');
-      if (!form) { if (window.rcmail) rcmail.display_message('Compose form not ready', 'error'); return; }
+			  var form = document.getElementById('composeform') || btn.closest('form');
+			  if (!form) { if (window.rcmail) rcmail.display_message('Compose form not ready', 'error'); return; }
 
-      // build payload (minimal safe fields)
-      var data = {};
-      var f = new FormData(form);
-      function copyField(name, as){ if (f.has(name)) data[as||name] = f.get(name); }
-      copyField('_id');
-      copyField('_from'); // identity id
-      copyField('_to');
-      copyField('_cc');
-      copyField('_bcc');
-      copyField('_subject');
-      copyField('_is_html');
+			  // build payload (minimal safe fields)
+			  var data = {};
+			  var f = new FormData(form);
+			  function copyField(name, as){ if (f.has(name)) data[as||name] = f.get(name); }
+			  copyField('_id');
+			  copyField('_from'); // identity id
+			  copyField('_to');
+			  copyField('_cc');
+			  copyField('_bcc');
+			  copyField('_subject');
+			  copyField('_is_html');
 
-      data['_schedule_at'] = when.value;
-      data['_schedule_ts'] = Math.floor(d.getTime()/1000);
-      data['_schedule_tzoffset'] = - (new Date().getTimezoneOffset()); // minutes
+			  data['_schedule_at'] = when.value;
+			  data['_schedule_ts'] = Math.floor(d.getTime()/1000);
+			  data['_schedule_tzoffset'] = - (new Date().getTimezoneOffset()); // minutes
 
-      // mark compose as clean to avoid discard modal
-      if (window.rcmail) {
-        rcmail.env.compose_submit = true;
-        rcmail.env.is_dirty = false;
-        rcmail.env.exit_warning = false;
-      }
+			  // mark compose as clean to avoid discard modal
+			  if (window.rcmail) {
+				rcmail.env.compose_submit = true;
+				rcmail.env.is_dirty = false;
+				rcmail.env.exit_warning = false;
+			  }
 
-      // AJAX via Roundcube
-      inflight = true;
-      btn.disabled = true;
-      try {
-        if (window.rcmail && typeof rcmail.http_post === 'function') {
-          rcmail.http_post('plugin.scheduled_sending.schedule', data);
-        } else {
-          // last-resort sync fallback (should not happen)
-          var xhr = new XMLHttpRequest();
-          xhr.open('POST', '?_task=mail&_action=plugin.scheduled_sending.schedule&_remote=1', true);
-          xhr.setRequestHeader('Content-Type','application/x-www-form-urlencoded');
-          var parts = [];
-          for (var k in data) { if (data.hasOwnProperty(k)) parts.push(encodeURIComponent(k)+'='+encodeURIComponent(data[k])); }
-          xhr.send(parts.join('&'));
-        }
-      } catch(e) {
-        inflight = false; btn.disabled = false;
-        if (window.console) console.error(e);
-      }
-      // re-enable after a short time; server will show toast
-      setTimeout(function(){ inflight=false; btn.disabled=false; }, 1200);
-    }, { once:false });
-  }
+			  // AJAX via Roundcube
+			  inflight = true;
+			  btn.disabled = true;
+			  try {
+				if (window.rcmail && typeof rcmail.http_post === 'function') {
+				  rcmail.http_post('plugin.scheduled_sending.schedule', data);
+				} else {
+				  // last-resort sync fallback (should not happen)
+				  var xhr = new XMLHttpRequest();
+				  xhr.open('POST', '?_task=mail&_action=plugin.scheduled_sending.schedule&_remote=1', true);
+				  xhr.setRequestHeader('Content-Type','application/x-www-form-urlencoded');
+				  var parts = [];
+				  for (var k in data) { if (data.hasOwnProperty(k)) parts.push(encodeURIComponent(k)+'='+encodeURIComponent(data[k])); }
+				  xhr.send(parts.join('&'));
+				}
+			  } catch(e) {
+				inflight = false; btn.disabled = false;
+				if (window.console) console.error(e);
+			  }
+			  // re-enable after a short time; server will show toast
+			  setTimeout(function(){ inflight=false; btn.disabled=false; }, 1200);
+			}, { once:false });
+		  }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', bind);
-  } else {
-    bind();
-  }
-})();
-</script>
-HTML;
+		  if (document.readyState === 'loading') {
+			document.addEventListener('DOMContentLoaded', bind);
+		  } else {
+			bind();
+		  }
+		})();
+		</script>
+		HTML;
 
-        $html = <<<HTML
-<div id="ss-inline-schedule" class="ss-row">
-  <label class="ss-label">⏰ Send at</label>
-  <input id="ss-when" type="datetime-local" name="_schedule_at" value="{$def}" />
-  <button type="button" id="ss-schedule-btn" class="button">Send later</button>
-</div>
-$inline
-HTML;
+				$html = <<<HTML
+		<div id="ss-inline-schedule" class="ss-row">
+		  <label class="ss-label">⏰ Send at</label>
+		  <input id="ss-when" type="datetime-local" name="_schedule_at" value="{$def}" />
+		  <button type="button" id="ss-schedule-btn" class="button">Send later</button>
+		</div>
+		$inline
+		HTML;
         return $html;
     }
 
@@ -635,10 +627,7 @@ HTML;
         } catch (Exception $e) {
             $this->ss_debug(array('msg'=>'tz_debug_error','err'=>$e->getMessage()));
         }
-        // ===== SS TZ DEBUG END =====
-
-        
-        
+       
         /* SS: schedule TZ normalize (v58) */
         try {
             $post     = function($k){ return rcube_utils::get_input_value($k, rcube_utils::INPUT_GPC); };
@@ -702,7 +691,7 @@ HTML;
         } catch (Exception $e) {
             $this->ss_debug(array('msg'=>'tz normalize error','err'=>$e->getMessage()));
         }
-$rc = $this->rc;
+		$rc = $this->rc;
         $this->ss_debug(array('msg'=>'action_schedule start','time'=>date('c'),'framed'=>(int)$rc->output->framed));
 
         // pull time
@@ -889,7 +878,6 @@ $rc = $this->rc;
             $this->ss_debug(array('msg'=>'draft save error','err'=>$e->getMessage()));
         }
 
-
         $this->log('queue insert', array('ok'=>(bool)$ok, 'scheduled_at'=>$scheduled_at, 'framed'=>(int)$rc->output->framed, 'identity_id'=>$identity_id));
 
         // Friendly toast back to client
@@ -908,8 +896,7 @@ $rc = $this->rc;
     }
     private function build_minimal_mime($from, $to, $cc, $bcc, $subject, $body, $is_html)
     {
-        $nl = "
-";
+        $nl = "";
         $headers = array();
         $headers[] = 'Date: ' . date('r');
         if ($from)   $headers[] = 'From: ' . $from;
@@ -1041,7 +1028,7 @@ $rc = $this->rc;
                     $this->ss_debug(array('msg'=>'worker imap err','err'=>$e->getMessage()));
                 }
             }
- else {
+		else {
                 $db->query("UPDATE $table SET status = 'error', updated_at = NOW() WHERE id = ?", $id);
             }
         }
@@ -1098,7 +1085,6 @@ $rc = $this->rc;
         
         return $args;
     }
-
 
     public function action_worker()
     {
@@ -1188,42 +1174,40 @@ $rc = $this->rc;
                . '<img src="' . rcube::Q($src) . '" height="24" alt="Delete">'
                . '</a>';
 
-
                 $table->add(array('class' => 'delete'), $delete_button);
             }
 
             $html = $table->show();
-
             $script = <<<JS
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    var saveButton = document.querySelector('.btn.btn-primary.submit');
-    if (saveButton) {
-        var formButtons = saveButton.closest('.formbuttons');
-        if (formButtons) {
-            formButtons.style.display = 'none';
-        }
-    }
+			<script>
+			document.addEventListener('DOMContentLoaded', function() {
+				var saveButton = document.querySelector('.btn.btn-primary.submit');
+				if (saveButton) {
+					var formButtons = saveButton.closest('.formbuttons');
+					if (formButtons) {
+						formButtons.style.display = 'none';
+					}
+				}
 
-    var deleteLinks = document.querySelectorAll('.delete-scheduled-message');
-    deleteLinks.forEach(function(link) {
-        link.addEventListener('click', function(e) {
-            e.preventDefault();
-            var messageId = this.getAttribute('data-id');
-            if (confirm('Are you sure you want to delete this scheduled message?')) {
-                rcmail.http_post('plugin.scheduled_sending.queue_delete', { '_id': messageId, '_token': rcmail.env.request_token }, function(response) {
-                    var row = link.closest('tr');
-                    if (row) {
-                        row.remove();
-                    }
-                    rcmail.display_message('Scheduled message deleted', 'confirmation');
-                });
-            }
-        });
-    });
-});
-</script>
-JS;
+				var deleteLinks = document.querySelectorAll('.delete-scheduled-message');
+				deleteLinks.forEach(function(link) {
+					link.addEventListener('click', function(e) {
+						e.preventDefault();
+						var messageId = this.getAttribute('data-id');
+						if (confirm('Are you sure you want to delete this scheduled message?')) {
+							rcmail.http_post('plugin.scheduled_sending.queue_delete', { '_id': messageId, '_token': rcmail.env.request_token }, function(response) {
+								var row = link.closest('tr');
+								if (row) {
+									row.remove();
+								}
+								rcmail.display_message('Scheduled message deleted', 'confirmation');
+							});
+						}
+					});
+				});
+			});
+			</script>
+			JS;
             $html .= $script;
 
             $args['blocks']['scheduled_sending'] = array(
