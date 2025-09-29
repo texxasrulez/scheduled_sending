@@ -14,4 +14,5 @@ $labels['subject'] = 'Θέμα';
 $labels['to'] = 'Προς';
 $labels['status'] = 'Κατάσταση';
 $labels['created_at'] = 'Δημιουργήθηκε στο';
+$labels['delete'] = 'Διαγράφω';
 ?>

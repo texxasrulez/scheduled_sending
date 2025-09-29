@@ -14,4 +14,5 @@ $labels = array(
   'to' => 'To',
   'status' => 'Status',
   'created_at' => 'Created At',
+  'delete' => 'Delete',
 );

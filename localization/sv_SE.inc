@@ -14,4 +14,5 @@ $labels['subject'] = 'Ämne';
 $labels['to'] = 'Till';
 $labels['status'] = 'Status';
 $labels['created_at'] = 'Skapad vid';
+$labels['delete'] = 'Radera';
 ?>

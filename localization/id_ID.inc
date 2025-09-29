@@ -14,4 +14,5 @@ $labels['subject'] = 'Subjek';
 $labels['to'] = 'Untuk';
 $labels['status'] = 'Status';
 $labels['created_at'] = 'Dibuat di';
+$labels['delete'] = 'Menghapus';
 ?>

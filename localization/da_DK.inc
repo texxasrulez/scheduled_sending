@@ -14,4 +14,5 @@ $labels['subject'] = 'Emne';
 $labels['to'] = 'Til';
 $labels['status'] = 'Status';
 $labels['created_at'] = 'Oprettet på';
+$labels['delete'] = 'Slet';
 ?>

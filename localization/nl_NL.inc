@@ -14,4 +14,5 @@ $labels['subject'] = 'Onderwerp';
 $labels['to'] = 'Naar';
 $labels['status'] = 'Status';
 $labels['created_at'] = 'Gemaakt op';
+$labels['delete'] = 'Verwijderen';
 ?>

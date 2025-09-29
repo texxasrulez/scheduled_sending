@@ -14,4 +14,5 @@ $labels['subject'] = '제목';
 $labels['to'] = 'To';
 $labels['status'] = '상태';
 $labels['created_at'] = '만든 곳';
+$labels['delete'] = '삭제';
 ?>

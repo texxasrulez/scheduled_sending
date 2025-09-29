@@ -14,4 +14,5 @@ $labels['subject'] = 'Konu';
 $labels['to'] = 'Için';
 $labels['status'] = 'Durum';
 $labels['created_at'] = 'Şu Adreste Oluşturuldu';
+$labels['delete'] = 'Silmek';
 ?>

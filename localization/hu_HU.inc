@@ -14,4 +14,5 @@ $labels['subject'] = 'Tárgy';
 $labels['to'] = 'A  címre';
 $labels['status'] = 'Állapot';
 $labels['created_at'] = 'Létrehozva';
+$labels['delete'] = 'Töröl';
 ?>

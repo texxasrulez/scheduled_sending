@@ -14,4 +14,5 @@ $labels['subject'] = 'Teema';
 $labels['to'] = 'Aadressile';
 $labels['status'] = 'Staatus';
 $labels['created_at'] = 'Loodud aadressil';
+$labels['delete'] = 'Kustuta';
 ?>

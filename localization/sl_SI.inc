@@ -14,4 +14,5 @@ $labels['subject'] = 'Zadeva';
 $labels['to'] = 'Na naslov';
 $labels['status'] = 'Status';
 $labels['created_at'] = 'Ustvarjeno na';
+$labels['delete'] = 'Izbriši';
 ?>

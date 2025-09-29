@@ -14,4 +14,5 @@ $labels['subject'] = 'الموضوع';
 $labels['to'] = 'إلى';
 $labels['status'] = 'الحالة';
 $labels['created_at'] = 'تم إنشاؤها في';
+$labels['delete'] = 'يمسح';
 ?>

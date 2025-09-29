@@ -14,4 +14,5 @@ $labels['subject'] = 'Тема';
 $labels['to'] = 'На';
 $labels['status'] = 'Статус';
 $labels['created_at'] = 'Создано в';
+$labels['delete'] = 'Удалить';
 ?>

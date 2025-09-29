@@ -14,4 +14,5 @@ $labels['subject'] = 'Temats';
 $labels['to'] = 'Uz';
 $labels['status'] = 'Statuss';
 $labels['created_at'] = 'Izveidots pie';
+$labels['delete'] = 'Dzēst';
 ?>

@@ -14,4 +14,5 @@ $labels['subject'] = 'Chủ đề';
 $labels['to'] = 'Để';
 $labels['status'] = 'Trạng thái';
 $labels['created_at'] = 'Được tạo vào';
+$labels['delete'] = 'Xóa bỏ';
 ?>

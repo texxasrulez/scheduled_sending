@@ -14,4 +14,5 @@ $labels['subject'] = '主题';
 $labels['to'] = '至';
 $labels['status'] = '现状';
 $labels['created_at'] = '创建于';
+$labels['delete'] = '删除';
 ?>

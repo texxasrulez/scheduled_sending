@@ -14,4 +14,5 @@ $labels['subject'] = 'テーマ';
 $labels['to'] = 'へ';
 $labels['status'] = 'ステータス';
 $labels['created_at'] = '作成日時';
+$labels['delete'] = '消去';
 ?>

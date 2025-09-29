@@ -13,5 +13,6 @@ $labels['scheduled_at'] = 'Aikataulutettu klo';
 $labels['subject'] = 'Aihe';
 $labels['to'] = 'Osoitteeseen';
 $labels['status'] = 'Tila';
-$labels['created_at'] = 'Created at';
+$labels['created_at'] = 'Luotu klo';
+$labels['delete'] = 'Poistaa';
 ?>

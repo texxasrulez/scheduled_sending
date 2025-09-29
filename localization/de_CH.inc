@@ -14,4 +14,5 @@ $labels['subject'] = 'Thema';
 $labels['to'] = 'An';
 $labels['status'] = 'Status';
 $labels['created_at'] = 'Erstellt am';
+$labels['delete'] = 'Löschen';
 ?>

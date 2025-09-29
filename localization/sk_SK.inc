@@ -14,4 +14,5 @@ $labels['subject'] = 'Predmet';
 $labels['to'] = 'Na';
 $labels['status'] = 'Stav';
 $labels['created_at'] = 'Vytvorené v';
+$labels['delete'] = 'Odstrániť';
 ?>

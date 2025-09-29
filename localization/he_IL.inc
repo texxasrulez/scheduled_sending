@@ -14,4 +14,5 @@ $labels['subject'] = 'נושא';
 $labels['to'] = 'ל';
 $labels['status'] = 'סטטוס';
 $labels['created_at'] = 'נוצר ב';
+$labels['delete'] = 'לִמְחוֹק';
 ?>
