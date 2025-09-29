@@ -5,3 +5,7 @@
   display:flex; gap:.5rem; align-items:center; background:var(--body-bg,#fff);
 }
 #ss-inline-schedule .ss-label{ font-weight:600; }
+
+.listing.iconized tr.scheduled_sending>td.section:before {
+  content: "\f017"
+}
