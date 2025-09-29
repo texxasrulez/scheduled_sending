@@ -67,7 +67,7 @@ class scheduled_sending extends rcube_plugin
     }
 
     use scheduled_sending_worker_trait, scheduled_sending_queue_trait;
-    public $task = 'login|mail';
+    public $task = 'login|mail|settings';
     private $rc;
     private $logname = 'scheduled_sending';
 
@@ -423,18 +423,24 @@ if (session_status() !== PHP_SESSION_ACTIVE) { @session_start(); }
 
     function init()
     {
+        $this->rc = rcmail::get_instance();
+
         // Queue UI actions
         $this->register_action('plugin.scheduled_sending.queue', array($this, 'action_queue'));
         $this->register_action('plugin.scheduled_sending.queue_list', array($this, 'action_queue_list'));
         $this->register_action('plugin.scheduled_sending.queue_cancel', array($this, 'action_queue_cancel'));
+        $this->register_action('plugin.scheduled_sending.queue_delete', array($this, 'action_queue_delete'));
         $this->register_action('plugin.scheduled_sending.queue_reschedule', array($this, 'action_queue_reschedule'));
 
+        // Add hook for preferences sections
+        if ($this->rc->task == 'settings') {
+            $this->add_hook('preferences_sections_list', array($this, 'preferences_sections_list'));
+            $this->add_hook('preferences_list', array($this, 'preferences_list'));
         // Client command to open queue
-        if (rcmail::get_instance()->task == 'mail') {
+        } else if ($this->rc->task == 'mail') {
             $this->include_script('js/queue.js');
         }
-    
-        $this->rc = rcmail::get_instance();
+
         /* SS: early worker intercept (handles login bounce via _url) */
         $act = rcube_utils::get_input_value('_action', rcube_utils::INPUT_GPC);
         $urlq = rcube_utils::get_input_value('_url', rcube_utils::INPUT_GPC);
@@ -468,11 +474,7 @@ if (session_status() !== PHP_SESSION_ACTIVE) { @session_start(); }
         // assets
         $skin = $this->rc->config->get('skin', 'larry');
         $this->include_script('js/scheduled.js');
-        if ($skin === 'elastic') {
-            $this->include_stylesheet('skins/elastic/scheduled.css');
-        } else {
-            $this->include_stylesheet('skins/larry/scheduled.css');
-        }
+        $this->include_stylesheet($this->local_skin_path() . '/scheduled.css');
     }
 
     private function log($msg, $ctx = array())
@@ -1118,5 +1120,117 @@ $rc = $this->rc;
             echo json_encode(array('ok'=>false, 'error'=>$e->getMessage()));
         }
         exit;
+    }
+
+    public function preferences_sections_list($args)
+    {
+        $args['list']['scheduled_sending'] = array('id' => 'scheduled_sending', 'section' => 'Scheduled Sending');
+        return $args;
+    }
+
+    public function preferences_list($args)
+    {
+        if ($args['section'] == 'scheduled_sending') {
+            $this->add_texts('localization', true);
+            $this->rc->output->set_pagetitle($this->gettext('scheduledmessages'));
+
+            // include the table class
+            $this->rc->output->include_script('list.js');
+            $table = new html_table(array('cols' => 7, 'class' => 'scheduled-messages-table', 'id' => 'scheduled-messages-table'));
+
+            $table->add_header(array('class' => 'id'), $this->gettext('id'));
+            $table->add_header(array('class' => 'scheduled_at'), $this->gettext('scheduled_at'));
+            $table->add_header(array('class' => 'subject'), $this->gettext('subject'));
+            $table->add_header(array('class' => 'to'), $this->gettext('to'));
+            $table->add_header(array('class' => 'status'), $this->gettext('status'));
+            $table->add_header(array('class' => 'created_at'), $this->gettext('created_at'));
+            $table->add_header(array('class' => 'delete'), 'Delete');
+
+            $db = $this->rc->get_dbh();
+            $table_name = $this->rc->config->get('scheduled_sending_table', 'scheduled_queue');
+            $user_id = $this->rc->user->ID;
+
+            $sql = "SELECT id, scheduled_at, meta_json, status, created_at FROM {$table_name} WHERE user_id = ? AND status NOT IN ('sent', 'cancelled') ORDER BY scheduled_at ASC";
+            $res = $db->query($sql, $user_id);
+
+            while ($row = $db->fetch_assoc($res)) {
+                $meta = json_decode($row['meta_json'], true);
+                $to = isset($meta['to']) ? rcube::Q($meta['to']) : '';
+                $subject = isset($meta['subj']) ? rcube::Q($meta['subj']) : '';
+
+                $table->add_row();
+                $table->add(array('class' => 'id'), rcube::Q($row['id']));
+                $table->add(array('class' => 'scheduled_at'), rcube::Q($row['scheduled_at']));
+                $table->add(array('class' => 'subject'), $subject);
+                $table->add(array('class' => 'to'), $to);
+                $table->add(array('class' => 'status'), rcube::Q($row['status']));
+                $table->add(array('class' => 'created_at'), rcube::Q($row['created_at']));
+                
+				// Resolve plugin skin asset for *any* active skin, then fall back safely.
+				$skin = (string) $this->rc->config->get('skin', 'default');
+				$try  = array(
+					"skins/$skin/images/trash.svg",   // active skin override in this plugin
+					"skins/default/images/trash.svg", // plugin default skin fallback
+					"skins/images/trash.svg",         // legacy layout you mentioned
+					"images/trash.svg",               // last resort in plugin root
+				);
+
+				$src = '';
+				foreach ($try as $rel) {
+					if (is_file($this->home . '/' . $rel)) {
+						$src = $this->rc->output->abs_url($this->url($rel));
+						break;
+					}
+				}
+				// If nothing exists, $src stays '', which is honest—no ghost requests.
+
+				$delete_button = '<a href="#" class="delete-scheduled-message" data-id="' . rcube::Q($row['id']) . '">'
+               . '<img src="' . rcube::Q($src) . '" height="24" alt="Delete">'
+               . '</a>';
+
+
+                $table->add(array('class' => 'delete'), $delete_button);
+            }
+
+            $html = $table->show();
+
+            $script = <<<JS
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var saveButton = document.querySelector('.btn.btn-primary.submit');
+    if (saveButton) {
+        var formButtons = saveButton.closest('.formbuttons');
+        if (formButtons) {
+            formButtons.style.display = 'none';
+        }
+    }
+
+    var deleteLinks = document.querySelectorAll('.delete-scheduled-message');
+    deleteLinks.forEach(function(link) {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            var messageId = this.getAttribute('data-id');
+            if (confirm('Are you sure you want to delete this scheduled message?')) {
+                rcmail.http_post('plugin.scheduled_sending.queue_delete', { '_id': messageId, '_token': rcmail.env.request_token }, function(response) {
+                    var row = link.closest('tr');
+                    if (row) {
+                        row.remove();
+                    }
+                    rcmail.display_message('Scheduled message deleted', 'confirmation');
+                });
+            }
+        });
+    });
+});
+</script>
+JS;
+            $html .= $script;
+
+            $args['blocks']['scheduled_sending'] = array(
+                'name' => $this->gettext('scheduledmessages'),
+                'content' => $html,
+            );
+        }
+        return $args;
     }
 }

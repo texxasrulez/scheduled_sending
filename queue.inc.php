@@ -72,4 +72,26 @@ trait scheduled_sending_queue_trait {
         $rc->output->command('display_message', $this->gettext('queue_resched_ok'), 'confirmation');
         $rc->output->send();
     }
+
+    public function action_queue_delete()
+    {
+        $rc  = $this->rc;
+        $cfg = $rc->config;
+        $db  = $rc->get_dbh();
+        $table = $cfg->get('db_table_scheduled_sending', 'scheduled_queue');
+        $id = (int) rcube_utils::get_input_value('_id', rcube_utils::INPUT_POST);
+        $user_id = $rc->user->ID;
+
+        if ($id > 0) {
+            $sql = "DELETE FROM {$table} WHERE id = ? AND user_id = ?";
+            $db->query($sql, $id, $user_id);
+
+            if ($db->affected_rows() > 0) {
+                $rc->output->command('display_message', 'Scheduled message deleted.', 'confirmation');
+            } else {
+                $rc->output->command('display_message', 'Failed to delete scheduled message.', 'error');
+            }
+        }
+        $rc->output->send();
+    }
 }

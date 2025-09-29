@@ -11,3 +11,18 @@
 .ssq-table th,.ssq-table td{border-bottom:1px solid #ddd;padding:6px 8px}
 .ssq-empty{opacity:.7;margin:12px 0}
 .button.ssq-bump10,.button.ssq-cancel{margin-right:6px}
+
+/* Settings section row */
+#sections-table tbody #rcmrowscheduled_sending td.section {
+  background-image: url(images/scheduled_sending.svg);
+  background-position: 5px 2px;
+  background-repeat: no-repeat;
+  background-size: 20px auto; /* 15px wide, same position */
+}
+
+#sections-table tbody #rcmrowscheduled_sending.selected td.section {
+  background-image: url(images/scheduled_sending-active.svg);
+  background-repeat: no-repeat;
+  background-position: 5px 2px;
+  background-size: 20px auto; /* 15px wide, same position */
+}

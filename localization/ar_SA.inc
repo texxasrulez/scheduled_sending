@@ -6,4 +6,12 @@ $labels['queue_resched_ok'] = 'إعادة جدولة';
 $labels['scheduled'] = 'المقرر';
 $labels['schedulefail'] = 'غير قادر على الجدولة';
 $labels['invaliddatetime'] = 'تاريخ/وقت غير صالح';
+$labels['scheduledmessages'] = 'الرسائل المجدولة';
+$labels['scheduledsending'] = 'الإرسال المجدول';
+$labels['id'] = 'بطاقة الهوية';
+$labels['scheduled_at'] = 'المقرر في';
+$labels['subject'] = 'الموضوع';
+$labels['to'] = 'إلى';
+$labels['status'] = 'الحالة';
+$labels['created_at'] = 'تم إنشاؤها في';
 ?>

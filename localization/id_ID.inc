@@ -6,4 +6,12 @@ $labels['queue_resched_ok'] = 'Penjadwalan ulang';
 $labels['scheduled'] = 'Terjadwal';
 $labels['schedulefail'] = 'Tidak dapat menjadwalkan';
 $labels['invaliddatetime'] = 'Tanggal/waktu tidak valid';
+$labels['scheduledmessages'] = 'Pesan Terjadwal';
+$labels['scheduledsending'] = 'Pengiriman Terjadwal';
+$labels['id'] = 'ID';
+$labels['scheduled_at'] = 'Dijadwalkan pada';
+$labels['subject'] = 'Subjek';
+$labels['to'] = 'Untuk';
+$labels['status'] = 'Status';
+$labels['created_at'] = 'Dibuat di';
 ?>

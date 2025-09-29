@@ -6,4 +6,12 @@ $labels['queue_resched_ok'] = 'Omplanerad';
 $labels['scheduled'] = 'Planerad';
 $labels['schedulefail'] = 'Kan inte schemaläggas';
 $labels['invaliddatetime'] = 'Ogiltigt datum/tid';
+$labels['scheduledmessages'] = 'Schemalagda meddelanden';
+$labels['scheduledsending'] = 'Schemalagd sändning';
+$labels['id'] = 'ID';
+$labels['scheduled_at'] = 'Planerad till';
+$labels['subject'] = 'Ämne';
+$labels['to'] = 'Till';
+$labels['status'] = 'Status';
+$labels['created_at'] = 'Skapad vid';
 ?>

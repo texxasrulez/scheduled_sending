@@ -6,4 +6,12 @@ $labels['queue_resched_ok'] = 'Utsatt';
 $labels['scheduled'] = 'Planlagt';
 $labels['schedulefail'] = 'Kan ikke planlegge';
 $labels['invaliddatetime'] = 'Ugyldig dato/tid';
+$labels['scheduledmessages'] = 'Planlagte meldinger';
+$labels['scheduledsending'] = 'Planlagt sending';
+$labels['id'] = 'ID';
+$labels['scheduled_at'] = 'Planlagt til';
+$labels['subject'] = 'Emne';
+$labels['to'] = 'Til';
+$labels['status'] = 'Status';
+$labels['created_at'] = 'Opprettet på';
 ?>

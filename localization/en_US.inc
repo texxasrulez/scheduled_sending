@@ -6,4 +6,12 @@ $labels = array(
   'scheduled' => 'Scheduled',
   'schedulefail' => 'Unable to schedule',
   'invaliddatetime' => 'Invalid date/time',
+  'scheduledmessages' => 'Scheduled Messages',
+  'scheduledsending' => 'Scheduled Sending',
+  'id' => 'ID',
+  'scheduled_at' => 'Scheduled At',
+  'subject' => 'Subject',
+  'to' => 'To',
+  'status' => 'Status',
+  'created_at' => 'Created At',
 );
