@@ -1,5 +1,12 @@
 # Scheduled Sending  
 
+[![Packagist](https://img.shields.io/packagist/dt/texxasrulez/scheduled_sending?style=flat-square)](https://packagist.org/packages/texxasrulez/scheduled_sending)
+[![Packagist Version](https://img.shields.io/packagist/v/texxasrulez/scheduled_sending?style=flat-square)](https://packagist.org/packages/texxasrulez/scheduled_sending)
+[![Project license](https://img.shields.io/github/license/texxasrulez/scheduled_sending?style=flat-square)](https://github.com/texxasrulez/scheduled_sending/LICENSE)
+[![GitHub stars](https://img.shields.io/github/stars/texxasrulez/scheduled_sending?style=flat-square&logo=github)](https://github.com/texxasrulez/scheduled_sending/stargazers)
+[![issues](https://img.shields.io/github/issues/texxasrulez/scheduled_sending)](https://github.com/texxasrulez/scheduled_sending/issues)
+[![Donate to this project using Paypal](https://img.shields.io/badge/paypal-donate-blue.svg?style=flat-square&logo=paypal)](https://www.paypal.me/texxasrulez)
+
 Schedule messages to be transmitted when you want them to go.
 Currently works good, but no attachment support at this time.
 
