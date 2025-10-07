@@ -4,7 +4,7 @@
 [![Packagist Version](https://img.shields.io/packagist/v/texxasrulez/scheduled_sending?style=plastic&logo=packagist&logoColor=white)](https://packagist.org/packages/texxasrulez/scheduled_sending)
 [![Project license](https://img.shields.io/github/license/texxasrulez/scheduled_sending?style=plastic)](https://github.com/texxasrulez/scheduled_sending/LICENSE)
 [![GitHub stars](https://img.shields.io/github/stars/texxasrulez/scheduled_sending?style=plastic&logo=github)](https://github.com/texxasrulez/scheduled_sending/stargazers)
-[![issues](https://img.shields.io/github/issues/texxasrulez/scheduled_sending)](https://github.com/texxasrulez/scheduled_sending/issues)
+[![issues](https://img.shields.io/github/issues/texxasrulez/scheduled_sending?style=plastic)](https://github.com/texxasrulez/scheduled_sending/issues)
 [![Donate to this project using Paypal](https://img.shields.io/badge/paypal-donate-blue.svg?style=plastic&logo=paypal)](https://www.paypal.me/texxasrulez)
 
 Schedule messages to be transmitted when you want them to go.
