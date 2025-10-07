@@ -1,11 +1,13 @@
 # Scheduled Sending  
 
-[![Packagist](https://img.shields.io/packagist/dt/texxasrulez/scheduled_sending?style=plastic)](https://packagist.org/packages/texxasrulez/scheduled_sending)
-[![Packagist Version](https://img.shields.io/packagist/v/texxasrulez/scheduled_sending?style=plastic&logo=packagist&logoColor=white)](https://packagist.org/packages/texxasrulez/scheduled_sending)
-[![Project license](https://img.shields.io/github/license/texxasrulez/scheduled_sending?style=plastic)](https://github.com/texxasrulez/scheduled_sending/LICENSE)
-[![GitHub stars](https://img.shields.io/github/stars/texxasrulez/scheduled_sending?style=plastic&logo=github)](https://github.com/texxasrulez/scheduled_sending/stargazers)
-[![issues](https://img.shields.io/github/issues/texxasrulez/scheduled_sending?style=plastic)](https://github.com/texxasrulez/scheduled_sending/issues)
-[![Donate to this project using Paypal](https://img.shields.io/badge/paypal-money_please-blue.svg?style=plastic&logo=paypal)](https://www.paypal.me/texxasrulez)
+[![Packagist](https://img.shields.io/packagist/dt/texxasrulez/scheduled_sending?style=plastic&labelColor=blue&color=gold)](https://packagist.org/packages/texxasrulez/scheduled_sending)
+[![Packagist Version](https://img.shields.io/packagist/v/texxasrulez/scheduled_sending?style=plastic&logo=packagist&logoColor=white&labelColor=blue&color=mediumspringgreen)](https://packagist.org/packages/texxasrulez/scheduled_sending)
+[![Project license](https://img.shields.io/github/license/texxasrulez/scheduled_sending?style=plastic&labelColor=blue&color=coral)](https://github.com/texxasrulez/scheduled_sending/LICENSE)
+[![GitHub stars](https://img.shields.io/github/stars/texxasrulez/scheduled_sending?style=plastic&logo=github&labelColor=blue&color=deepskyblue)](https://github.com/texxasrulez/scheduled_sending/stargazers)
+[![issues](https://img.shields.io/github/issues/texxasrulez/scheduled_sending?style=plastic&labelColor=blue&color=aqua)](https://github.com/texxasrulez/scheduled_sending/issues)
+![GitHub contributors](https://img.shields.io/github/contributors/texxasrulez/scheduled_sending?style=plastic&logo=github&logoColor=white&labelColor=blue&color=orchid)
+![GitHub forks](https://img.shields.io/github/forks/texxasrulez/scheduled_sending?style=plastic&logo=github&logoColor=white&labelColor=blue&color=darkorange)
+[![Donate to this project using Paypal](https://img.shields.io/badge/paypal-money_please-blue.svg?style=plastic&labelColor=blue&color=forestgreen&logo=paypal)](https://www.paypal.me/texxasrulez)
 
 Schedule messages to be transmitted when you want them to go.
 Currently works good, but no attachment support at this time.
