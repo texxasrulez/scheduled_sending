@@ -1,12 +1,12 @@
-# Scheduled Sending  
+# Scheduled Sending
 
 [![Packagist](https://img.shields.io/packagist/dt/texxasrulez/scheduled_sending?style=plastic&labelColor=blue&color=gold)](https://packagist.org/packages/texxasrulez/scheduled_sending)
-[![Packagist Version](https://img.shields.io/packagist/v/texxasrulez/scheduled_sending?style=plastic&logo=packagist&logoColor=white&labelColor=blue&color=mediumspringgreen)](https://packagist.org/packages/texxasrulez/scheduled_sending)
+[![Packagist Version](https://img.shields.io/packagist/v/texxasrulez/scheduled_sending?style=plastic&logo=packagist&logoColor=white&labelColor=blue&color=limegreen)](https://packagist.org/packages/texxasrulez/scheduled_sending)
 [![Project license](https://img.shields.io/github/license/texxasrulez/scheduled_sending?style=plastic&labelColor=blue&color=coral)](https://github.com/texxasrulez/scheduled_sending/LICENSE)
 [![GitHub stars](https://img.shields.io/github/stars/texxasrulez/scheduled_sending?style=plastic&logo=github&labelColor=blue&color=deepskyblue)](https://github.com/texxasrulez/scheduled_sending/stargazers)
 [![issues](https://img.shields.io/github/issues/texxasrulez/scheduled_sending?style=plastic&labelColor=blue&color=aqua)](https://github.com/texxasrulez/scheduled_sending/issues)
-![GitHub contributors](https://img.shields.io/github/contributors/texxasrulez/scheduled_sending?style=plastic&logo=github&logoColor=white&labelColor=blue&color=orchid)
-![GitHub forks](https://img.shields.io/github/forks/texxasrulez/scheduled_sending?style=plastic&logo=github&logoColor=white&labelColor=blue&color=darkorange)
+[![GitHub contributors](https://img.shields.io/github/contributors/texxasrulez/scheduled_sending?style=plastic&logo=github&logoColor=white&labelColor=blue&color=orchid)](https://github.com/texxasrulez/scheduled_sending/graphs/contributors)
+[![GitHub forks](https://img.shields.io/github/forks/texxasrulez/scheduled_sending?style=plastic&logo=github&logoColor=white&labelColor=blue&color=darkorange)](https://github.com/texxasrulez/scheduled_sending/forks)
 [![Donate to this project using Paypal](https://img.shields.io/badge/paypal-money_please-blue.svg?style=plastic&labelColor=blue&color=forestgreen&logo=paypal)](https://www.paypal.me/texxasrulez)
 
 Schedule messages to be transmitted when you want them to go.
