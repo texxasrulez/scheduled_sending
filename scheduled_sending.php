@@ -1124,13 +1124,13 @@ class scheduled_sending extends rcube_plugin
             $this->rc->output->include_script('list.js');
             $table = new html_table(array('width' => '75%', 'cols' => 7, 'class' => 'scheduled-messages-table', 'id' => 'scheduled-messages-table'));
 
-            $table->add_header(array('width' => '2%', 'align' => 'left', 'class' => 'id'), $this->gettext('id'));
+            $table->add_header(array('width' => '2%',  'align' => 'left', 'class' => 'id'), $this->gettext('id'));
             $table->add_header(array('width' => '15%', 'align' => 'left', 'class' => 'scheduled_at'), $this->gettext('scheduled_at'));
             $table->add_header(array('width' => '28%', 'align' => 'left', 'class' => 'subject'), $this->gettext('subject'));
             $table->add_header(array('width' => '28%', 'align' => 'left', 'class' => 'to'), $this->gettext('to'));
-            $table->add_header(array('width' => '8%', 'align' => 'left', 'class' => 'status'), $this->gettext('status'));
+            $table->add_header(array('width' => '8%',  'align' => 'left', 'class' => 'status'), $this->gettext('status'));
             $table->add_header(array('width' => '15%', 'align' => 'left', 'class' => 'created_at'), $this->gettext('created_at'));
-            $table->add_header(array('width' => '4%', 'align' => 'left', 'class' => 'delete'), $this->gettext('delete'));
+            $table->add_header(array('width' => '4%',  'align' => 'left', 'class' => 'delete'), $this->gettext('delete'));
 
             $db = $this->rc->get_dbh();
             $table_name = $this->rc->config->get('scheduled_sending_table', 'scheduled_queue');
@@ -1171,7 +1171,7 @@ class scheduled_sending extends rcube_plugin
 				// If nothing exists, $src stays '', which is honest—no ghost requests.
 
 				$delete_button = '<a href="#" class="delete-scheduled-message" data-id="' . rcube::Q($row['id']) . '">'
-               . '<img src="' . rcube::Q($src) . '" height="20" alt="Delete">'
+               . '<img style="margin: 10px;" src="' . rcube::Q($src) . '" height="20" alt="Delete">'
                . '</a>';
 
                 $table->add(array('class' => 'delete'), $delete_button);
