@@ -12,8 +12,11 @@ class scheduled_sending extends rcube_plugin
     private function ss_debug($payload) {
         try {
             $rc = $this->rc ?: rcmail::get_instance();
-            if ($rc && $rc->config->get('scheduled_debug', false)) {
-                $this->ss_debug($payload);
+            if ($rc && $rc->config->get('scheduled_debug', false) && function_exists('write_log')) {
+                if (!is_scalar($payload)) {
+                    $payload = json_encode($payload);
+                }
+                write_log('scheduled_sending_debug', $payload);
             }
         } catch (Exception $e) {
             // never let logging break sending
@@ -418,6 +421,9 @@ class scheduled_sending extends rcube_plugin
     function init()
     {
         $this->rc = rcmail::get_instance();
+
+        // Load plugin localization for all tasks/actions
+        $this->add_texts('localization', true);
 
         // Queue UI actions
         $this->register_action('plugin.scheduled_sending.queue', array($this, 'action_queue'));
@@ -1114,6 +1120,7 @@ class scheduled_sending extends rcube_plugin
         return $args;
     }
 
+    
     public function preferences_list($args)
     {
         if ($args['section'] == 'scheduled_sending') {
@@ -1122,7 +1129,12 @@ class scheduled_sending extends rcube_plugin
 
             // include the table class
             $this->rc->output->include_script('list.js');
-            $table = new html_table(array('width' => '75%', 'cols' => 7, 'class' => 'scheduled-messages-table', 'id' => 'scheduled-messages-table'));
+            $table = new html_table(array(
+                'width' => '75%',
+                'cols'  => 8,
+                'class' => 'scheduled-messages-table',
+                'id'    => 'scheduled-messages-table',
+            ));
 
             $table->add_header(array('width' => '2%',  'align' => 'left', 'class' => 'id'), $this->gettext('id'));
             $table->add_header(array('width' => '15%', 'align' => 'left', 'class' => 'scheduled_at'), $this->gettext('scheduled_at'));
@@ -1130,13 +1142,15 @@ class scheduled_sending extends rcube_plugin
             $table->add_header(array('width' => '28%', 'align' => 'left', 'class' => 'to'), $this->gettext('to'));
             $table->add_header(array('width' => '8%',  'align' => 'left', 'class' => 'status'), $this->gettext('status'));
             $table->add_header(array('width' => '15%', 'align' => 'left', 'class' => 'created_at'), $this->gettext('created_at'));
-            $table->add_header(array('width' => '4%',  'align' => 'left', 'class' => 'delete'), $this->gettext('delete'));
+            $table->add_header(array('width' => '4%',  'align' => 'left', 'class' => 'edit'), 'Edit');
+            $table->add_header(array('width' => '6%',  'align' => 'left', 'class' => 'delete'), $this->gettext('delete'));
 
             $db = $this->rc->get_dbh();
             $table_name = $this->rc->config->get('scheduled_sending_table', 'scheduled_queue');
             $user_id = $this->rc->user->ID;
 
-            $sql = "SELECT id, scheduled_at, meta_json, status, created_at FROM {$table_name} WHERE user_id = ? AND status NOT IN ('sent', 'cancelled') ORDER BY scheduled_at ASC";
+            $sql = "SELECT id, scheduled_at, meta_json, status, created_at FROM {$table_name} ".
+                   "WHERE user_id = ? AND status NOT IN ('sent', 'cancelled') ORDER BY scheduled_at ASC";
             $res = $db->query($sql, $user_id);
 
             while ($row = $db->fetch_assoc($res)) {
@@ -1151,70 +1165,46 @@ class scheduled_sending extends rcube_plugin
                 $table->add(array('class' => 'to'), $to);
                 $table->add(array('class' => 'status'), rcube::Q($row['status']));
                 $table->add(array('class' => 'created_at'), rcube::Q($row['created_at']));
-                
-				// Resolve plugin skin asset for *any* active skin, then fall back safely.
-				$skin = (string) $this->rc->config->get('skin', 'default');
-				$try  = array(
-					"skins/$skin/images/trash.svg",   // active skin override in this plugin
-					"skins/default/images/trash.svg", // plugin default skin fallback
-					"skins/images/trash.svg",         // legacy layout you mentioned
-					"images/trash.svg",               // last resort in plugin root
-				);
 
-				$src = '';
-				foreach ($try as $rel) {
-					if (is_file($this->home . '/' . $rel)) {
-						$src = $this->rc->output->abs_url($this->url($rel));
-						break;
-					}
-				}
-				// If nothing exists, $src stays '', which is honest—no ghost requests.
+                $scheduled_ts = (int) strtotime($row['scheduled_at']);
 
-				$delete_button = '<a href="#" class="delete-scheduled-message" data-id="' . rcube::Q($row['id']) . '">'
-               . '<img style="margin: 10px;" src="' . rcube::Q($src) . '" height="20" alt="Delete">'
-               . '</a>';
+                // Resolve plugin skin asset for *any* active skin, then fall back safely.
+                $skin = (string) $this->rc->config->get('skin', 'default');
+                $try  = array(
+                    "skins/$skin/images/trash.svg",   // active skin override in this plugin
+                    "skins/default/images/trash.svg", // plugin default skin fallback
+                    "skins/images/trash.svg",         // legacy layout
+                    "images/trash.svg",               // last resort in plugin root
+                );
 
+                $src = '';
+                foreach ($try as $rel) {
+                    if (is_file($this->home . '/' . $rel)) {
+                        $src = $this->rc->output->abs_url($this->url($rel));
+                        break;
+                    }
+                }
+
+                $delete_button = '<a href="#" class="delete-scheduled-message" data-id="' . rcube::Q($row['id']) . '">'
+                               . '<img style="vertical-align: middle;" src="' . rcube::Q($src) . '" height="16" alt="Delete">'
+                               . '</a>';
+
+                $edit_button = '<a href="#" class="edit-scheduled-message" data-id="' . rcube::Q($row['id']) . '" data-ts="' . $scheduled_ts . '">Edit</a>';
+
+                $table->add(array('class' => 'edit'), $edit_button);
                 $table->add(array('class' => 'delete'), $delete_button);
             }
 
             $html = $table->show();
-            $script = <<<JS
-			<script>
-			document.addEventListener('DOMContentLoaded', function() {
-				var saveButton = document.querySelector('.btn.btn-primary.submit');
-				if (saveButton) {
-					var formButtons = saveButton.closest('.formbuttons');
-					if (formButtons) {
-						formButtons.style.display = 'none';
-					}
-				}
-
-				var deleteLinks = document.querySelectorAll('.delete-scheduled-message');
-				deleteLinks.forEach(function(link) {
-					link.addEventListener('click', function(e) {
-						e.preventDefault();
-						var messageId = this.getAttribute('data-id');
-						if (confirm('Are you sure you want to delete this scheduled message?')) {
-							rcmail.http_post('plugin.scheduled_sending.queue_delete', { '_id': messageId, '_token': rcmail.env.request_token }, function(response) {
-								var row = link.closest('tr');
-								if (row) {
-									row.remove();
-								}
-								rcmail.display_message('Scheduled message deleted', 'confirmation');
-							});
-						}
-					});
-				});
-			});
-			</script>
-			JS;
-            $html .= $script;
+            $this->include_script('js/settings_queue.js');
 
             $args['blocks']['scheduled_sending'] = array(
                 'name' => $this->gettext('scheduledmessages'),
                 'content' => $html,
             );
         }
+
         return $args;
     }
+
 }

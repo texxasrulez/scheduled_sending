@@ -1,16 +1,41 @@
+/* Summer Larry Skin */
 /* keep the row neat; don't disturb header icons */
-#ss-inline-schedule.ss-row{
-  margin:6px 0; padding:6px;
-  border:1px solid #d9d9d9; border-radius:6px;
-  display:inline-flex; flex-wrap:wrap; gap:8px; align-items:center; background:#fff;
+#ss-inline-schedule.ss-row {
+    margin: 6px 0;
+    padding: 6px;
+    border: 1px solid #d9d9d9;
+    border-radius: 6px;
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    background: #193950 !important;
 }
-#ss-inline-schedule .ss-label{ font-weight:bold; margin-right:6px; }
+#ss-inline-schedule .ss-label {
+    font-weight: bold;
+    color: #fff;
+    margin-right: 6px;
+}
 
 /* Queue styles */
-.ssq-table{width:100%;border-collapse:collapse;margin-top:8px}
-.ssq-table th,.ssq-table td{border-bottom:1px solid #ddd;padding:6px 8px}
-.ssq-empty{opacity:.7;margin:12px 0}
-.button.ssq-bump10,.button.ssq-cancel{margin-right:6px}
+.ssq-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 8px;
+}
+.ssq-table th,
+.ssq-table td {
+    border-bottom: 1px solid #ddd;
+    padding: 6px 8px;
+}
+.ssq-empty {
+    opacity: 0.7;
+    margin: 12px 0;
+}
+.button.ssq-bump10,
+.button.ssq-cancel {
+    margin-right: 6px;
+}
 
 /* Settings section row */
 #sections-table tbody #rcmrowscheduled_sending td.section {
@@ -25,4 +50,27 @@
   background-repeat: no-repeat;
   background-position: 5px 2px;
   background-size: 20px auto; /* 15px wide, same position */
+}
+
+/* header row styling for Scheduled Messages table */
+#scheduled-messages-table thead th,
+#scheduled-messages-table tr:first-child th {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background-color: #c59e29;
+	background: -moz-linear-gradient(top, #c59e29 0%, #81570d 100%);
+	background: -webkit-gradient(linear, left top, left bottom, color-stop(0%,#c59e29), color-stop(100%,#81570d));
+	background: -ms-linear-gradient(top, #c59e29 0%, #81570d 100%);
+	background: linear-gradient(to bottom, #c59e29 0%, #81570d 100%);
+    border-bottom: 1px solid #ccc;
+    padding: 0.35rem 0.5rem;
+    color: #fff;
+    text-align: left;
+    font-weight: bold;
+}
+
+/* keep body rows normal so only the header is colored */
+#scheduled-messages-table tbody td {
+    background: #eadfbc;
 }
