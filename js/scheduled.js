@@ -1,3 +1,52 @@
+var __ss_isArray = Array.isArray || function(v){ return Object.prototype.toString.call(v) === '[object Array]'; };
+function __ss_collect_attachment_meta(target){
+  try{
+    if (!target || typeof target !== 'object') return;
+    var ids = __ss_isArray(target._attach_ids) ? target._attach_ids.slice() : [];
+    var seen = {};
+    for (var i=0;i<ids.length;i++){ seen[ids[i]] = true; }
+    var probe = [];
+    function push(id, name, size){
+      if (id && !seen[id]) { ids.push(id); seen[id] = true; }
+      probe.push({id:id||'', name:name||'', size:size||''});
+    }
+    var list = document.getElementById('attachment-list');
+    if (list && list.querySelectorAll) {
+      var items = list.querySelectorAll('li');
+      for (var j=0;j<items.length;j++){
+        var li = items[j];
+        var aid = li.getAttribute('data-id') || li.getAttribute('rel') || li.id || '';
+        var name = li.getAttribute('data-name') || li.textContent || '';
+        var sz = li.getAttribute('data-size') || '';
+        push(aid, (name || '').trim(), sz);
+      }
+    }
+    if (window.rcmail && rcmail.env) {
+      var envList = rcmail.env.attachments || rcmail.env.compose_attachments || null;
+      if (envList) {
+        if (__ss_isArray(envList)) {
+          for (var k=0;k<envList.length;k++){
+            var e = envList[k];
+            if (!e) continue;
+            push(e.id || e.uploadid || e._id || '', e.name || e.filename || '', e.size || e.filesize || '');
+          }
+        } else {
+          for (var key in envList){
+            if (!Object.prototype.hasOwnProperty.call(envList, key)) continue;
+            var ent = envList[key];
+            if (!ent) continue;
+            push(ent.id || ent.uploadid || key, ent.name || ent.filename || '', ent.size || ent.filesize || '');
+          }
+        }
+      }
+    }
+    if (ids.length) target._attach_ids = ids;
+    if (probe.length) {
+      try { target._ss_attach_probe = JSON.stringify(probe); } catch(e){}
+    }
+  } catch(_){}
+}
+
 /* scheduled.js - binds click handler only once; relies on inline fallback too */
 (function(){
   if (window.__SS_JS_BOUND) return;
@@ -96,6 +145,7 @@
         }
       })();
 
+      __ss_collect_attachment_meta(data);
 
       
 /* SS: client UTC encode v57 */
@@ -151,6 +201,7 @@ try {
             try { setUID(); } catch(e){}
             // Continue immediately
             if (window.rcmail && typeof rcmail.http_post === 'function') {
+              __ss_collect_attachment_meta(data);
               rcmail.http_post('plugin.scheduled_sending.schedule', data);
             }
           };
@@ -162,7 +213,9 @@ try {
           setTimeout(function(){ if (!done) onSaved(); }, 600);
           return; // prevent double http_post below; onSaved will call it
         } catch(e){ /* fall through to normal path */ }
-    
+
+        __ss_collect_attachment_meta(data);
+
         rcmail.http_post('plugin.scheduled_sending.schedule', data);
       }
     }, { once:false });
@@ -230,6 +283,7 @@ try {
             }
           } catch(_){}
 
+          __ss_collect_attachment_meta(data);
           /* TZ attach */
 
 /* SS: client UTC encode */

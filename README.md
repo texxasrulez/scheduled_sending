@@ -9,8 +9,7 @@
 [![GitHub Forks](https://img.shields.io/github/forks/texxasrulez/scheduled_sending?style=plastic&logo=github&logoColor=white&label=Forks&labelColor=blue&color=darkorange)](https://github.com/texxasrulez/scheduled_sending/forks)
 [![Donate Paypal](https://img.shields.io/badge/Paypal-Money_Please!-blue.svg?style=plastic&labelColor=blue&color=forestgreen&logo=paypal)](https://www.paypal.me/texxasrulez)
 
-Schedule messages to be transmitted when you want them to go.
-Currently works good, but no attachment support at this time.
+Schedule messages to be transmitted when you want them to go, including messages with attachments.
 
 # Scheduled Sending — Installation Guide for Roundcube
 

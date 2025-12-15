@@ -4,10 +4,15 @@ if (!function_exists('ss_debug')) {
     function ss_debug($payload) {
         try {
             $rc = rcmail::get_instance();
-            if ($rc && $rc->config->get('scheduled_debug', false)) {
-                ss_debug($payload);
+            if ($rc && $rc->config->get('scheduled_debug', false) && function_exists('write_log')) {
+                if (!is_scalar($payload)) {
+                    $payload = json_encode($payload);
+                }
+                write_log('scheduled_sending_debug', $payload);
             }
-        } catch (Exception $e) {}
+        } catch (Exception $e) {
+            // Never let logging explode the worker.
+        }
     }
 }
 // Worker include for Scheduled Sending
@@ -48,7 +53,11 @@ $res = $db->query($sql);if (!$res) {
             $id = (int)$row['id'];
 
             // Flip to 'sending' so we don't repick in parallel
-            $db->query("DELETE FROM $table WHERE id=?", $id);
+            $pick = $db->query("UPDATE $table SET status='sending', updated_at=UTC_TIMESTAMP() WHERE id=? AND status='queued'", $id);
+            if ($db->affected_rows($pick) < 1) {
+                $this->log('worker skip', array('id'=>$id,'reason'=>'status_changed'));
+                continue;
+            }
             $this->log('worker pick', array('id'=>$id));
 
             $raw = $row['raw_mime'];
@@ -179,9 +188,9 @@ $env_from = trim($env_from);
                     unset($hdr_arr['To'], $hdr_arr['Subject'], $hdr_arr['Bcc']);
                     $hdr_lines = array();
                     foreach ($hdr_arr as $k=>$v) $hdr_lines[] = $k.': '.$v;
-                    $hdr_str = implode("
-", $hdr_lines);
-                    $ok = mail($to_hdr, $subject, $raw_body, $hdr_str, '-f' . $env_from);
+                    $hdr_str = implode("\r\n", $hdr_lines);
+                    $php_opts = $env_from ? '-f' . $env_from : '';
+                    $ok = mail($to_hdr, $subject, $raw_body, $hdr_str, $php_opts);
                     if ($ok) {
                         $err = '';
                         $this->log('fallback mail() sent', array('id'=>$id));
@@ -203,7 +212,8 @@ $env_from = trim($env_from);
                         $hdr_lines = array();
                         foreach ($headers_arr as $k=>$v) $hdr_lines[] = $k.': '.$v;
                         $hdr_str = implode("\r\n", $hdr_lines);
-                        $ok = mail($to_hdr, $subject, $raw_body, $hdr_str, '-f' . $env_from);
+                        $php_opts = $env_from ? '-f' . $env_from : '';
+                        $ok = mail($to_hdr, $subject, $raw_body, $hdr_str, $php_opts);
                         if (!$ok) $err = 'mail() returned false'; else if (empty($err)) { $err = 'mail() returned false (no details)'; }
                     }
                 }
@@ -255,12 +265,11 @@ $env_from = trim($env_from);
                     ss_debug(array('msg'=>'imap post-send', 'err'=>$e->getMessage()));
                 }
 
-                $db->query("DELETE FROM $table WHERE id=?", $id);
+                $db->query("UPDATE $table SET status='sent', last_error=NULL, updated_at=UTC_TIMESTAMP() WHERE id=?", $id);
                 $this->log('worker sent', array('id'=>$id)); $sent_ok++;
             } else {
                 $err = (string)$err; if ($err === '') { $err = 'unknown failure'; }
-                $db->query("UPDATE $table SET last_error=?, updated_at=UTC_TIMESTAMP() WHERE id=?", (string)$err, $id);
-                $db->query("UPDATE $table SET scheduled_at=UTC_TIMESTAMP()+INTERVAL 5 MINUTE, status='queued' WHERE id=?", $id);
+                $db->query("UPDATE $table SET last_error=?, updated_at=UTC_TIMESTAMP(), status='queued', scheduled_at=UTC_TIMESTAMP()+INTERVAL 5 MINUTE WHERE id=?", (string)$err, $id);
                 $this->log('worker retry scheduled', array('id'=>$id, 'delay'=>300, 'attempts'=>1));
                 if (!empty($err)) { $this->log('worker retry reason', array('id'=>$id,'error'=>$err)); $last_err = (string)$err; } $failed++;
             }

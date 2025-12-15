@@ -166,7 +166,185 @@ class scheduled_sending extends rcube_plugin
             return '';
         }
     }
-    
+
+    private function _ss_get_compose_context($compose_id)
+    {
+        try {
+            if (session_status() !== PHP_SESSION_ACTIVE) {
+                @session_start();
+            }
+        } catch (\Exception $e) {
+        }
+
+        $sess = (isset($_SESSION) && is_array($_SESSION)) ? $_SESSION : array();
+        $ctx = array('id' => $compose_id, 'bucket' => null, 'session' => $sess);
+
+        if (empty($ctx['id'])) {
+            $pools = array();
+            if (isset($sess['compose_data']) && is_array($sess['compose_data'])) {
+                $pools[] = $sess['compose_data'];
+            }
+            if (isset($sess['rcmail.compose']) && is_array($sess['rcmail.compose'])) {
+                $pools[] = $sess['rcmail.compose'];
+            }
+            if (isset($sess['rcmail']) && isset($sess['rcmail']['compose']) && is_array($sess['rcmail']['compose'])) {
+                $pools[] = $sess['rcmail']['compose'];
+            }
+            foreach ($pools as $pool) {
+                if (!is_array($pool) || !count($pool)) continue;
+                $keys = array_keys($pool);
+                if (!empty($keys)) {
+                    $ctx['id'] = end($keys);
+                    break;
+                }
+            }
+        }
+
+        $compose_keys = array();
+        foreach ($sess as $k => $v) {
+            if (stripos($k, 'compose') !== false) {
+                $compose_keys[] = $k;
+            }
+        }
+        if (!empty($compose_keys)) {
+            $this->ss_debug(array('msg' => 'compose_session_keys', 'keys' => $compose_keys));
+        }
+
+        $bucket = null;
+        $cid = $ctx['id'];
+        if ($cid) {
+            $direct = 'compose_data_' . $cid;
+            if (isset($sess[$direct]) && is_array($sess[$direct])) {
+                $bucket = $sess[$direct];
+            } elseif (isset($sess['compose_data']) && isset($sess['compose_data'][$cid])) {
+                $bucket = $sess['compose_data'][$cid];
+            } elseif (isset($sess['rcmail.compose']) && isset($sess['rcmail.compose'][$cid])) {
+                $bucket = $sess['rcmail.compose'][$cid];
+            } elseif (isset($sess['rcmail']) && isset($sess['rcmail']['compose']) && isset($sess['rcmail']['compose'][$cid])) {
+                $bucket = $sess['rcmail']['compose'][$cid];
+            }
+        }
+
+        if (is_array($bucket)) {
+            $ctx['bucket'] = $bucket;
+            $this->ss_debug(array('msg' => 'compose_bucket_keys', 'compose_id' => $cid, 'keys' => array_keys($bucket)));
+        } elseif ($cid) {
+            $this->ss_debug(array('msg' => 'compose_bucket_missing', 'compose_id' => $cid));
+        }
+
+        return $ctx;
+    }
+
+    private function _ss_body_is_empty($body, $is_html)
+    {
+        if (!is_string($body) || $body === '') return true;
+        $text = $body;
+        if ($is_html) {
+            $text = preg_replace('~<div[^>]*id=["\']?_rc_sig["\']?[^>]*>.*?</div>~is', '', $text);
+            $text = strip_tags($text);
+        }
+        $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $text = preg_replace("/\xC2\xA0/u", ' ', $text);
+        $text = preg_replace('/\s+/u', ' ', $text);
+        return trim($text) === '';
+    }
+
+    private function _ss_looks_like_base64_blob($string)
+    {
+        if (!is_string($string) || $string === '') return false;
+        $sample = substr($string, 0, 256);
+        $sample_stripped = preg_replace('/[\r\n\s]+/', '', $sample);
+        if (strlen($sample_stripped) < 200) return false;
+        return (bool)preg_match('/^[A-Za-z0-9+\/=]+$/', $sample_stripped);
+    }
+
+    private function _ss_extract_body_candidate($node)
+    {
+        if (!is_array($node)) return null;
+        $stack = array(array('', $node));
+        $visited = 0; $max_nodes = 4000;
+        $best = null; $global_html = null;
+
+        while ($stack) {
+            $cur = array_pop($stack);
+            $path = $cur[0];
+            $val = $cur[1];
+            if (!is_array($val)) continue;
+            if (++$visited > $max_nodes) break;
+            foreach ($val as $k => $v) {
+                $key = is_string($k) ? $k : (string)$k;
+                $lk = strtolower($key);
+                $next_path = $path === '' ? $lk : $path . '.' . $lk;
+                if ($lk === 'is_html' && !is_array($v) && $global_html === null) {
+                    $global_html = (bool)$v;
+                }
+                if (is_array($v)) {
+                    $stack[] = array($next_path, $v);
+                    continue;
+                }
+                if (!is_string($v)) continue;
+                $trim = trim($v);
+                if ($trim === '') continue;
+                if ($this->_ss_looks_like_base64_blob($trim)) continue;
+
+                $length = strlen($trim);
+                $score = null; $html = false;
+                $pineedle = strpos($lk, 'plain') !== false;
+                $msgneedle = strpos($lk, 'message') !== false;
+
+                if (in_array($lk, array('html', 'body_html', 'message_html', 'htmlbody'))) {
+                    $score = 100; $html = true;
+                } elseif ($msgneedle && strpos($lk, 'html') !== false) {
+                    $score = 95; $html = true;
+                } elseif (strpos($lk, 'html') !== false && strpos($lk, 'subject') === false) {
+                    $score = 85; $html = true;
+                } elseif (in_array($lk, array('body', 'text', 'message', 'plain'))) {
+                    $score = $pineedle ? 75 : 70;
+                } elseif (strpos($lk, 'body') !== false || strpos($lk, 'text') !== false) {
+                    $score = 60;
+                }
+
+                if ($score === null) continue;
+                if ($length > 1000) {
+                    $score += 5;
+                } elseif ($length > 400) {
+                    $score += 2;
+                }
+
+                $looks_html = $html;
+                if (!$looks_html) {
+                    if ($global_html) $looks_html = true;
+                    elseif (strip_tags($trim) !== $trim) $looks_html = true;
+                }
+                if ($best === null || $score > $best['score']) {
+                    $best = array('body' => $trim, 'is_html' => $looks_html, 'score' => $score, 'path' => $next_path);
+                }
+            }
+        }
+        return $best;
+    }
+
+    private function _ss_resolve_body_from_context($ctx, $body, $is_html)
+    {
+        if (!$this->_ss_body_is_empty($body, $is_html)) {
+            return array('body' => $body, 'is_html' => $is_html);
+        }
+        $candidate = null;
+        if (is_array($ctx)) {
+            if (isset($ctx['bucket']) && is_array($ctx['bucket'])) {
+                $candidate = $this->_ss_extract_body_candidate($ctx['bucket']);
+            }
+            if (!$candidate && isset($ctx['session']) && is_array($ctx['session'])) {
+                $candidate = $this->_ss_extract_body_candidate($ctx['session']);
+            }
+        }
+        if ($candidate && !empty($candidate['body'])) {
+            $this->ss_debug(array('msg' => 'compose_body_hydrated', 'is_html' => (int)$candidate['is_html'], 'path' => isset($candidate['path']) ? $candidate['path'] : '?', 'len' => strlen($candidate['body'])));
+            return array('body' => $candidate['body'], 'is_html' => $candidate['is_html']);
+        }
+        return array('body' => $body, 'is_html' => $is_html);
+    }
+
     /**
      * Build full MIME using Roundcube compose session (attachments in $_SESSION).
      * Returns raw RFC822 or empty string on failure.
@@ -177,107 +355,96 @@ class scheduled_sending extends rcube_plugin
      * - Recursively searches $_SESSION for attachment-like entries under any compose bucket.
      * - If $attach_ids is provided (array of ids/keys), only include those.
      */
-    private function _ss_build_mime_from_compose($compose_id, $from, $to, $cc, $bcc, $subject, $body, $is_html, $attach_ids = null)
+    private function _ss_build_mime_from_compose($compose_id, $from, $to, $cc, $bcc, $subject, $body, $is_html, $attach_ids = null, $compose_ctx = null)
     {
         try {
-            
-            // If no compose_id is provided, try to autodetect the current compose bucket
-            if (empty($compose_id)) {
-                $auto_id = null;
-                foreach (array('compose_data', 'rcmail.compose') as $rootkey) {
-                    if (isset($sess[$rootkey]) && is_array($sess[$rootkey]) && !empty($sess[$rootkey])) {
-                        $keys = array_keys($sess[$rootkey]);
-                        $auto_id = end($keys);
-                        break;
-                    }
+            if ($compose_ctx === null || !is_array($compose_ctx)) {
+                $compose_ctx = $this->_ss_get_compose_context($compose_id);
+            }
+            $compose_id = isset($compose_ctx['id']) ? $compose_ctx['id'] : $compose_id;
+            $sess = (isset($compose_ctx['session']) && is_array($compose_ctx['session'])) ? $compose_ctx['session'] : ((isset($_SESSION) && is_array($_SESSION)) ? $_SESSION : array());
+            $bucket = isset($compose_ctx['bucket']) ? $compose_ctx['bucket'] : null;
+            if ($bucket === null && $compose_id) {
+                $this->ss_debug(array('msg'=>'compose_bucket_missing','compose_id'=>$compose_id));
+            }
+
+            $attachments = array();
+            $seen_attachments = array();
+            $collect_attachment = function($key, $arr) use (&$attachments, &$seen_attachments) {
+                if (!is_array($arr)) return;
+                $name = isset($arr['name']) ? $arr['name'] : (isset($arr['filename']) ? $arr['filename'] : 'file');
+                $type = isset($arr['mimetype']) ? $arr['mimetype'] : (isset($arr['type']) ? $arr['type'] : 'application/octet-stream');
+                $path = null;
+                if (!empty($arr['path'])) $path = $arr['path'];
+                elseif (!empty($arr['file'])) $path = $arr['file'];
+                elseif (!empty($arr['tmp_name'])) $path = $arr['tmp_name'];
+                $inline_data = null;
+                $inline_b64  = null;
+                if ($path && !@is_readable($path)) {
+                    $path = null;
                 }
-                if ($auto_id) { $compose_id = $auto_id; }
-            }
-			if (session_status() !== PHP_SESSION_ACTIVE) { @session_start(); }
-            $sess = $_SESSION;
+                if (!$path) {
+                    if (isset($arr['content_b64'])) $inline_b64 = $arr['content_b64'];
+                    elseif (isset($arr['content'])) $inline_data = $arr['content'];
+                    elseif (isset($arr['data'])) $inline_data = $arr['data'];
+                    elseif (isset($arr['body'])) $inline_data = $arr['body'];
+                    elseif (isset($arr['contents'])) $inline_data = $arr['contents'];
+                }
+                $has_inline = ($inline_b64 !== null) || ($inline_data !== null && $inline_data !== '');
+                if (!$path && !$has_inline) {
+                    return;
+                }
+                $fingerprint = $path ? ('path:' . $path) : ('mem:' . ($inline_b64 !== null ? sha1($inline_b64) : sha1((string)$inline_data)));
+                if (isset($seen_attachments[$fingerprint])) {
+                    return;
+                }
+                $seen_attachments[$fingerprint] = true;
+                $attachments[$key] = array(
+                    'name' => $name,
+                    'type' => $type ?: 'application/octet-stream',
+                    'path' => $path,
+                    'data' => $inline_data,
+                    'data_b64' => $inline_b64,
+                );
+            };
 
-            // Discover compose container candidates (keys only, no values in logs)
-            $compose_keys = array();
-            foreach ($sess as $k=>$v) {
-                if (stripos($k, 'compose') !== false) $compose_keys[] = $k;
-            }
-            $this->ss_debug(array('msg'=>'compose_session_keys','keys'=>$compose_keys));
-
-            // If compose_id is present, directly inspect its bucket first
-            if ($compose_id) {
-                $bucket = null;
-                $buckkey = 'compose_data_'.$compose_id;
-                if (isset($sess[$buckkey])) $bucket = $sess[$buckkey];
-                elseif (isset($sess['compose_data']) && isset($sess['compose_data'][$compose_id])) $bucket = $sess['compose_data'][$compose_id];
-                elseif (isset($sess['rcmail.compose']) && isset($sess['rcmail.compose'][$compose_id])) $bucket = $sess['rcmail.compose'][$compose_id];
-
-                if (is_array($bucket)) {
-                    // Log shallow keys from this bucket
-                    $bk = array_keys($bucket);
-                    $this->ss_debug(array('msg'=>'compose_bucket_keys','compose_id'=>$compose_id,'keys'=>$bk));
-
-                    // Common Roundcube 1.5/1.6: $bucket['attachments'] is an array keyed by upload-id
-                    if (isset($bucket['attachments']) && is_array($bucket['attachments'])) {
-                        foreach ($bucket['attachments'] as $akey=>$aval) {
-                            // Log keys of each attachment (no values)
-                            if (is_array($aval)) $this->ss_debug(array('msg'=>'compose_bucket_attachment_keys','aid'=>$akey,'keys'=>array_keys($aval)));
-                            // Try to resolve a readable path
-                            $candidate = null;
-                            if (isset($aval['path'])) $candidate = $aval['path'];
-                            elseif (isset($aval['file'])) $candidate = $aval['file'];
-                            elseif (isset($aval['tmp_name'])) $candidate = $aval['tmp_name'];
-                            // Some RC setups store temp name but not full path; try typical temp_dir prefix
-                            if (!$candidate && isset($aval['id'])) {
-                                try {
-                                    $rc = $this->rc ?: rcmail::get_instance();
-                                    $tmpdir = $rc->config->get('temp_dir');
-                                    if ($tmpdir) {
-                                        $try = rtrim($tmpdir, '/').'/'.$aval['id'];
-                                        if (is_readable($try)) $candidate = $try;
-                                        else {
-                                            // fallback: rcmail-style names like rcmail-attach-<id>
-                                            $alt = rtrim($tmpdir, '/').'/rcmattach-'.$aval['id'];
-                                            if (is_readable($alt)) $candidate = $alt;
-                                        }
+            if (is_array($bucket) && isset($bucket['attachments']) && is_array($bucket['attachments'])) {
+                foreach ($bucket['attachments'] as $akey=>$aval) {
+                    if (is_array($aval)) {
+                        $this->ss_debug(array('msg'=>'compose_bucket_attachment_keys','aid'=>$akey,'keys'=>array_keys($aval)));
+                        if (empty($aval['path']) && empty($aval['file']) && empty($aval['tmp_name']) && isset($aval['id'])) {
+                            try {
+                                $rc = $this->rc ?: rcmail::get_instance();
+                                $tmpdir = $rc->config->get('temp_dir');
+                                if ($tmpdir) {
+                                    $try = rtrim($tmpdir, '/').'/'.$aval['id'];
+                                    if (is_readable($try)) $aval['path'] = $try;
+                                    else {
+                                        $alt = rtrim($tmpdir, '/').'/rcmattach-'.$aval['id'];
+                                        if (is_readable($alt)) $aval['path'] = $alt;
                                     }
-                                } catch (\Exception $e) {}
-                            }
-                            if ($candidate && is_readable($candidate)) {
-                                $name = isset($aval['name']) ? $aval['name'] : (isset($aval['filename']) ? $aval['filename'] : ($akey.'.bin'));
-                                $type = isset($aval['mimetype']) ? $aval['mimetype'] : (isset($aval['type']) ? $aval['type'] : 'application/octet-stream');
-                                $attachments[$akey] = array('name'=>$name,'type'=>$type,'path'=>$candidate);
-                            } else {
-                                $this->ss_debug(array('msg'=>'compose_attach_unreadable','aid'=>$akey));
-                            }
+                                }
+                            } catch (\Exception $e) {}
                         }
+                        $collect_attachment($akey, $aval);
                     }
-                } else {
-                    $this->ss_debug(array('msg'=>'compose_bucket_missing','compose_id'=>$compose_id));
                 }
             }
 
             // Gather possible attachment arrays by recursive walk (depth-limited)
-            $attachments = array();
             $visited = 0;
             $max_nodes = 2000;
 
-            $push_att = function($key, $arr) use (&$attachments) {
-                $name = isset($arr['name']) ? $arr['name'] : (isset($arr['filename']) ? $arr['filename'] : 'file');
-                $type = isset($arr['mimetype']) ? $arr['mimetype'] : (isset($arr['type']) ? $arr['type'] : 'application/octet-stream');
-                $path = isset($arr['path']) ? $arr['path'] : (isset($arr['file']) ? $arr['file'] : (isset($arr['tmp_name']) ? $arr['tmp_name'] : null));
-                if ($path && @is_readable($path)) {
-                    $attachments[$key] = array('name'=>$name,'type'=>$type,'path'=>$path);
-                }
-            };
-
-            $walk = function($node, $path='') use (&$walk, &$attachments, &$visited, $max_nodes, $push_att) {
+            $walk = function($node, $path='') use (&$walk, &$attachments, &$visited, $max_nodes, $collect_attachment) {
                 if ($visited++ > $max_nodes) return;
                 if (is_array($node)) {
                     // detect array-of-attachments
                     $keys = array_keys($node);
-                    $is_attachment = (isset($node['name']) && (isset($node['path']) || isset($node['file']) || isset($node['tmp_name'])));
+                    $has_file_ref = (isset($node['path']) || isset($node['file']) || isset($node['tmp_name']));
+                    $has_inline = (isset($node['content']) || isset($node['data']) || isset($node['body']) || isset($node['contents']) || isset($node['content_b64']));
+                    $is_attachment = (isset($node['name']) && ($has_file_ref || $has_inline));
                     if ($is_attachment) {
-                        $push_att($path, $node);
+                        $collect_attachment($path, $node);
                         return;
                     }
                     // walk children
@@ -347,8 +514,17 @@ class scheduled_sending extends rcube_plugin
 
             $att_parts = '';
             foreach ($attachments as $k=>$a) {
-                $data = @file_get_contents($a['path']);
-                if ($data === false) continue;
+                $data = '';
+                if (!empty($a['path']) && @is_readable($a['path'])) {
+                    $data = @file_get_contents($a['path']);
+                } elseif (!empty($a['data_b64'])) {
+                    $decoded = base64_decode($a['data_b64'], true);
+                    if ($decoded !== false) $data = $decoded;
+                } elseif (isset($a['data'])) {
+                    $data = $a['data'];
+                }
+                if ($data === false || $data === null) continue;
+                if ($data === '' && $data !== '0') continue;
                 $b64 = rtrim(chunk_split(base64_encode($data)));
                 $fname = addcslashes($a['name'], '\"\\');
                 $ctype = $a['type'] ?: 'application/octet-stream';
@@ -416,6 +592,39 @@ class scheduled_sending extends rcube_plugin
             $this->ss_debug(array('msg'=>'json_mime_error','err'=>$e->getMessage()));
             return '';
         }
+    }
+
+    private function _ss_mime_attachment_count($raw)
+    {
+        if (!is_string($raw) || $raw === '') return 0;
+        if (preg_match_all('/Content-Disposition:\s*attachment/iu', $raw, $m)) {
+            return count($m[0]);
+        }
+        return 0;
+    }
+
+    private function _ss_mime_body_length($raw)
+    {
+        if (!is_string($raw) || $raw === '') return 0;
+        $payload = '';
+        if (preg_match('/boundary="([^"]+)"/i', $raw, $mm)) {
+            $boundary = $mm[1];
+            $parts = preg_split('/--' . preg_quote($boundary, '/') . '/', $raw);
+            if (count($parts) > 1) {
+                $first = $parts[1];
+                $sections = preg_split("/\r?\n\r?\n/", $first, 2);
+                if (isset($sections[1])) $payload = $sections[1];
+            }
+        }
+        if ($payload === '') {
+            $sections = preg_split("/\r?\n\r?\n/", $raw, 2);
+            if (isset($sections[1])) $payload = $sections[1];
+        }
+        $payload = preg_replace('/--[^\r\n]+--\s*$/', '', $payload);
+        $text = strip_tags($payload);
+        $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $text = preg_replace('/\s+/', '', $text);
+        return strlen(trim($text));
     }
 
     function init()
@@ -703,11 +912,15 @@ class scheduled_sending extends rcube_plugin
         // pull time
         $when    = rcube_utils::get_input_value('_schedule_at', rcube_utils::INPUT_POST);
         $epoch   = (int) rcube_utils::get_input_value('_schedule_ts', rcube_utils::INPUT_POST);
+        $epoch_src = ($epoch > 0) ? 'absolute' : 'none';
         $tzoff   = (int) rcube_utils::get_input_value('_schedule_tzoffset', rcube_utils::INPUT_POST); // minutes east of UTC
 
         if ($epoch <= 0 && $when) {
             $t = strtotime($when);
-            if ($t) $epoch = $t;
+            if ($t) {
+                $epoch = $t;
+                $epoch_src = 'local';
+            }
         }
 
         if ($epoch <= 0) {
@@ -718,7 +931,7 @@ class scheduled_sending extends rcube_plugin
         }
 
         // Convert to UTC only when client did NOT send absolute epoch (_schedule_ts)
-        if (!$ts && $tzoff) {
+        if ($epoch_src !== 'absolute' && $tzoff) {
             $epoch = $epoch - ($tzoff * 60);
         }
         if ($epoch <= time()) {
@@ -781,6 +994,37 @@ class scheduled_sending extends rcube_plugin
                 }
             }
 
+            $compose_id = rcube_utils::get_input_value('_id', rcube_utils::INPUT_POST);
+            $compose_ctx = $this->_ss_get_compose_context($compose_id);
+            $compose_id = isset($compose_ctx['id']) ? $compose_ctx['id'] : $compose_id;
+            $hydrated = $this->_ss_resolve_body_from_context($compose_ctx, $body, $is_html);
+            $body = $hydrated['body'];
+            $is_html = $hydrated['is_html'];
+
+            $attach_ids = rcube_utils::get_input_value('_attach_ids', rcube_utils::INPUT_POST);
+            if (!is_array($attach_ids)) { $attach_ids = $attach_ids ? array($attach_ids) : array(); }
+            $attach_probe_json = rcube_utils::get_input_value('_ss_attach_probe', rcube_utils::INPUT_POST, true);
+            $attach_probe = array();
+            if ($attach_probe_json) {
+                $tmp_probe = json_decode($attach_probe_json, true);
+                if (is_array($tmp_probe)) $attach_probe = $tmp_probe;
+                $this->ss_debug(array('msg'=>'attach_probe_client','probe'=>$attach_probe_json));
+            }
+            $expected_attachments = count($attach_ids);
+            if (!$expected_attachments && count($attach_probe)) $expected_attachments = count($attach_probe);
+            $compose_mime = '';
+            $compose_attach_count = 0;
+            if ($compose_id) {
+                $compose_mime = $this->_ss_build_mime_from_compose($compose_id, $from, $to, $cc, $bcc, $subject, $body, $is_html, $attach_ids, $compose_ctx);
+                if ($compose_mime !== '') {
+                    $compose_attach_count = $this->_ss_mime_attachment_count($compose_mime);
+                } else {
+                    $this->ss_debug(array('msg'=>'compose_mime_prefetch_empty','compose_id'=>$compose_id));
+                }
+            } else {
+                $this->ss_debug(array('msg'=>'compose_id_missing'));
+            }
+
             
             // Try to reuse existing Draft (captures attachments) before falling back to minimal MIME
             $draft_uid_post = (int) rcube_utils::get_input_value('_draft_uid', rcube_utils::INPUT_POST);
@@ -810,33 +1054,38 @@ class scheduled_sending extends rcube_plugin
                 }
             }
             if ($draft_mime === '') {
-                // Probe: log what client thinks about attachments
-                $probe = rcube_utils::get_input_value('_ss_attach_probe', rcube_utils::INPUT_POST, true);
-                if ($probe) { $this->ss_debug(array('msg'=>'attach_probe_client', 'probe'=>$probe)); }
-            
                 $draft_mime = $this->_ss_try_fetch_draft_mime($subject, $from);
             }
-            
-            // If we still don't have MIME from Drafts, try building from compose session (attachments)
-            if ($draft_mime === '') {
-                $compose_id = rcube_utils::get_input_value('_id', rcube_utils::INPUT_POST);
-                if ($compose_id) {
-                    $attach_ids = rcube_utils::get_input_value('_attach_ids', rcube_utils::INPUT_POST);
-                    if (!is_array($attach_ids)) { $attach_ids = $attach_ids ? array($attach_ids) : array(); }
-                    $built = $this->_ss_build_mime_from_compose($compose_id, $from, $to, $cc, $bcc, $subject, $body, $is_html, $attach_ids);
-                    if ($built !== '') {
-                        $draft_mime = $built;
-                        $this->ss_debug(array('msg'=>'compose_mime_used','compose_id'=>$compose_id));
-                    } else {
-                        $this->ss_debug(array('msg'=>'compose_mime_not_built','compose_id'=>$compose_id));
-                    }
-                } else {
-                    $this->ss_debug(array('msg'=>'compose_id_missing'));
+
+            $draft_used = false;
+            if ($draft_mime === '' && $compose_mime !== '') {
+                $draft_mime = $compose_mime;
+                $draft_used = true;
+                $this->ss_debug(array('msg'=>'compose_mime_used','compose_id'=>$compose_id,'reason'=>'no_draft'));
+            } elseif ($draft_mime !== '' && $compose_mime !== '' && $compose_mime !== $draft_mime) {
+                $draft_attach_count = $this->_ss_mime_attachment_count($draft_mime);
+                $draft_body_len = $this->_ss_mime_body_length($draft_mime);
+                $input_body_text = $is_html ? trim(strip_tags((string)$body)) : trim((string)$body);
+                $input_body_len = strlen(preg_replace('/\s+/', '', $input_body_text));
+
+                $prefer_compose = false;
+                if ($compose_attach_count > $draft_attach_count) {
+                    $prefer_compose = true;
+                }
+                if ($expected_attachments && $compose_attach_count >= $expected_attachments && $draft_attach_count < $expected_attachments) {
+                    $prefer_compose = true;
+                }
+                if ($input_body_len > 0 && $draft_body_len === 0) {
+                    $prefer_compose = true;
+                }
+                if ($prefer_compose) {
+                    $draft_mime = $compose_mime;
+                    $draft_used = true;
+                    $this->ss_debug(array('msg'=>'compose_mime_preferred','compose_id'=>$compose_id,'draft_attach'=>$draft_attach_count,'compose_attach'=>$compose_attach_count,'body_len'=>$input_body_len));
                 }
             }
 
-            $this->ss_debug(array('msg'=>'draft_probe','used'=>($draft_mime!==''),'subject'=>$subject,'uid_post'=>$draft_uid_post));
-            $this->ss_debug(array('msg'=>'draft_probe','used'=>($draft_mime!==''),'subject'=>$subject));
+            $this->ss_debug(array('msg'=>'draft_probe','used'=>($draft_mime!=='') && !$draft_used,'subject'=>$subject,'uid_post'=>$draft_uid_post));
             if ($draft_mime !== '') {
                 $raw_mime = $draft_mime;
             } else {
@@ -846,14 +1095,11 @@ class scheduled_sending extends rcube_plugin
             // Safety net: if body ended up empty (headers-only), try to build from compose session even without explicit _id
             $parts_check = preg_split("/\r?\n\r?\n/", (string)$raw_mime, 2);
             $body_check  = isset($parts_check[1]) ? trim($parts_check[1]) : '';
-            if ($body_check === '') {
-                $built_auto = $this->_ss_build_mime_from_compose($compose_id, $from, $to, $cc, $bcc, $subject, $body, $is_html, isset($attach_ids) ? $attach_ids : array());
-                if ($built_auto !== '') {
-                    $raw_mime = $built_auto;
-                    $this->ss_debug(array('msg'=>'auto_compose_fallback_used','compose_id'=>$compose_id));
-                } else {
-                    $this->ss_debug(array('msg'=>'auto_compose_fallback_failed'));
-                }
+            if ($body_check === '' && $compose_mime !== '' && $raw_mime !== $compose_mime) {
+                $raw_mime = $compose_mime;
+                $this->ss_debug(array('msg'=>'auto_compose_fallback_used','compose_id'=>$compose_id));
+            } elseif ($body_check === '' && $compose_mime === '') {
+                $this->ss_debug(array('msg'=>'auto_compose_fallback_failed'));
             }
 
         }
