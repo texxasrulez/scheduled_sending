@@ -1,5 +1,6 @@
 # Scheduled Sending
 
+![Downloads](https://img.shields.io/github/downloads/texxasrulez/scheduled_sending/total?style=plastic&logo=github&logoColor=white&label=Downloads&labelColor=aqua&color=blue)
 [![Packagist Downloads](https://img.shields.io/packagist/dt/texxasrulez/scheduled_sending?style=plastic&logo=packagist&logoColor=white&label=Downloads&labelColor=blue&color=gold)](https://packagist.org/packages/texxasrulez/scheduled_sending)
 [![Packagist Version](https://img.shields.io/packagist/v/texxasrulez/scheduled_sending?style=plastic&logo=packagist&logoColor=white&label=Version&labelColor=blue&color=limegreen)](https://packagist.org/packages/texxasrulez/scheduled_sending)
 [![Github License](https://img.shields.io/github/license/texxasrulez/scheduled_sending?style=plastic&logo=github&label=License&labelColor=blue&color=coral)](https://github.com/texxasrulez/scheduled_sending/LICENSE)
