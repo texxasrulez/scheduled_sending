@@ -6,6 +6,7 @@
   function bind_delete_links(rcmail) {
     var nodes = document.querySelectorAll('.delete-scheduled-message');
     if (!nodes.length) return;
+    function t(key) { return (rcmail.gettext ? rcmail.gettext(key, 'scheduled_sending') : key); }
 
     Array.prototype.forEach.call(nodes, function(link) {
       link.addEventListener('click', function(ev) {
@@ -13,7 +14,7 @@
         var id = this.getAttribute('data-id');
         if (!id) return;
 
-        var ok = window.confirm(rcmail.gettext('delete') + '?');
+        var ok = window.confirm(t('delete') + '?');
         if (!ok) return;
 
         rcmail.http_post(
@@ -34,6 +35,7 @@
   function bind_edit_links(rcmail) {
     var nodes = document.querySelectorAll('.edit-scheduled-message');
     if (!nodes.length) return;
+    function t(key) { return (rcmail.gettext ? rcmail.gettext(key, 'scheduled_sending') : key); }
 
     Array.prototype.forEach.call(nodes, function(link) {
       link.addEventListener('click', function(ev) {
@@ -55,21 +57,21 @@
           }
         }
 
-        var promptLabel = 'Enter new send time (YYYY-MM-DD HH:MM, your local time):';
+        var promptLabel = t('reschedule_prompt');
         var val = window.prompt(promptLabel, defVal);
         if (!val) return;
 
         var normalized = val.replace(' ', 'T');
         var d2 = new Date(normalized);
         if (isNaN(d2.getTime())) {
-          window.alert('Could not parse date/time. Use YYYY-MM-DD HH:MM format.');
+          window.alert(t('reschedule_invalid'));
           return;
         }
 
         var nowSec = Math.floor(Date.now() / 1000);
         var newTs = Math.floor(d2.getTime() / 1000);
         if (newTs <= nowSec) {
-          window.alert('New time must be in the future.');
+          window.alert(t('reschedule_future'));
           return;
         }
 

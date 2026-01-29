@@ -55,6 +55,7 @@ function __ss_collect_attachment_meta(target){
   function bind(){
     var btn = document.getElementById('ss-schedule-btn');
     if (!btn) return;
+    function t(key) { return (window.rcmail && rcmail.gettext) ? rcmail.gettext(key, 'scheduled_sending') : key; }
     var inflight = false;
     btn.addEventListener('click', function(ev){
       ev.preventDefault();
@@ -65,7 +66,7 @@ function __ss_collect_attachment_meta(target){
       if (typeof window.__SS_BOUND !== 'undefined') return;
 
       var when = document.getElementById('ss-when');
-      if (!when || !when.value) { if (window.rcmail) rcmail.display_message('Pick a future time', 'error'); return; }
+      if (!when || !when.value) { if (window.rcmail) rcmail.display_message(t('pick_future_time'), 'error'); return; }
       var d = new Date(when.value);
       /* SS: toast delay v61 */
       try {
@@ -79,10 +80,10 @@ function __ss_collect_attachment_meta(target){
         })();
       } catch(e) {}
 
-      if (isNaN(d.getTime()) || d.getTime() <= Date.now()) { if (window.rcmail) rcmail.display_message('Pick a future time', 'error'); return; }
+      if (isNaN(d.getTime()) || d.getTime() <= Date.now()) { if (window.rcmail) rcmail.display_message(t('pick_future_time'), 'error'); return; }
 
       var form = document.getElementById('composeform') || btn.closest('form');
-      if (!form) { if (window.rcmail) rcmail.display_message('Compose form not ready', 'error'); return; }
+      if (!form) { if (window.rcmail) rcmail.display_message(t('compose_form_not_ready'), 'error'); return; }
 
       var data = {};
       var f = new FormData(form);

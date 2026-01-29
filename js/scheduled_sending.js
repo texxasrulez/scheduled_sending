@@ -3,6 +3,7 @@
   var DBG = !!(window.SCHEDULED_SENDING_DEBUG || (window.rcmail && rcmail.env && rcmail.env.scheduled_sending_debug));
   function log(){ if (DBG && window.console) { try { console.debug.apply(console, ['[SS]'].concat([].slice.call(arguments))); } catch(e) {} } }
   function pad(n){ return (n<10?'0':'')+n; }
+  function t(key){ return (window.rcmail && rcmail.gettext) ? rcmail.gettext(key, 'scheduled_sending') : key; }
 
   function prefill(){
     var i = document.querySelector('#scheduled-sending-modal input[name="_schedule_at"]');
@@ -35,7 +36,7 @@
     var form = (window.rcmail && rcmail.gui_objects && rcmail.gui_objects.messageform) ||
                document.querySelector('form#compose-content form, form#composeform, form[name="form"]') ||
                document.forms[0];
-    if (!form) { if (window.rcmail) rcmail.display_message('Scheduled Sending: compose form missing', 'error'); log('compose form missing'); return; }
+    if (!form) { if (window.rcmail) rcmail.display_message(t('compose_form_not_ready'), 'error'); log('compose form missing'); return; }
 
     try { window.onbeforeunload = null; } catch(e){}
     var url = (window.rcmail ? rcmail.url('plugin.scheduled_sending.schedule') : '?_task=mail&_action=plugin.scheduled_sending.schedule');

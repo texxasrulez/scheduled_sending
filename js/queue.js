@@ -29,9 +29,10 @@
       if (!root) return;
 
       // Build table
+      function t(key) { return (rcmail.gettext ? rcmail.gettext(key, 'scheduled_sending') : key); }
       var html = [];
       html.push('<table class="ssq-table" role="grid">');
-      html.push('<thead><tr><th>ID</th><th>Status</th><th>Local time</th><th>UTC</th><th>To</th><th>Subject</th><th>Actions</th></tr></thead><tbody>');
+      html.push('<thead><tr><th>'+t('id')+'</th><th>'+t('status')+'</th><th>'+t('local_time')+'</th><th>'+t('utc')+'</th><th>'+t('to')+'</th><th>'+t('subject')+'</th><th>'+t('actions')+'</th></tr></thead><tbody>');
       rows.forEach(function(r) {
         var dt = r.scheduled_ts ? new Date(r.scheduled_ts * 1000) : null;
         function pad(n){return (n<10?'0':'')+n}
@@ -43,15 +44,15 @@
         var utc = (r.scheduled_utc||'').replace(' ', '&nbsp;');
         var actions = [];
         if (r.status === 'queued' || r.status === 'processing') {
-          actions.push('<button class="button ssq-cancel" data-id="'+r.id+'">Cancel</button>');
-          actions.push('<button class="button ssq-bump10" data-id="'+r.id+'">+10m</button>');
+          actions.push('<button class="button ssq-cancel" data-id="'+r.id+'">'+t('cancel')+'</button>');
+          actions.push('<button class="button ssq-bump10" data-id="'+r.id+'">'+t('bump10')+'</button>');
         } else {
-          actions.push('<span class="quiet">n/a</span>');
+          actions.push('<span class="quiet">'+t('not_applicable')+'</span>');
         }
         html.push('<tr data-id="'+r.id+'"><td>'+r.id+'</td><td>'+r.status+'</td><td>'+local+'</td><td>'+utc+'</td><td>'+ (r.to||'') +'</td><td>'+ (r.subj||'') +'</td><td>'+actions.join(' ')+'</td></tr>');
       });
       html.push('</tbody></table>');
-      if (!rows.length) html.push('<p class="ssq-empty">No queued messages.</p>');
+      if (!rows.length) html.push('<p class="ssq-empty">'+t('no_queued_messages')+'</p>');
       root.innerHTML = html.join('');
 
       root.onclick = function(e){

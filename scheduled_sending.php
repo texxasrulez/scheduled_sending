@@ -806,11 +806,13 @@ class scheduled_sending extends rcube_plugin
 		</script>
 		HTML;
 
+				$send_at_label = rcube::Q($this->gettext('sendat'));
+				$send_later_label = rcube::Q($this->gettext('sendlater'));
 				$html = <<<HTML
 		<div id="ss-inline-schedule" class="ss-row">
-		  <label class="ss-label">⏰ Send at</label>
+		  <label class="ss-label">⏰ {$send_at_label}</label>
 		  <input id="ss-when" type="datetime-local" name="_schedule_at" value="{$def}" />
-		  <button type="button" id="ss-schedule-btn" class="button">Send later</button>
+		  <button type="button" id="ss-schedule-btn" class="button">{$send_later_label}</button>
 		</div>
 		$inline
 		HTML;
@@ -1362,7 +1364,7 @@ class scheduled_sending extends rcube_plugin
 
     public function preferences_sections_list($args)
     {
-        $args['list']['scheduled_sending'] = array('id' => 'scheduled_sending', 'section' => 'Scheduled Sending');
+        $args['list']['scheduled_sending'] = array('id' => 'scheduled_sending', 'section' => $this->gettext('scheduledsending'));
         return $args;
     }
 
@@ -1388,7 +1390,7 @@ class scheduled_sending extends rcube_plugin
             $table->add_header(array('width' => '28%', 'align' => 'left', 'class' => 'to'), $this->gettext('to'));
             $table->add_header(array('width' => '8%',  'align' => 'left', 'class' => 'status'), $this->gettext('status'));
             $table->add_header(array('width' => '15%', 'align' => 'left', 'class' => 'created_at'), $this->gettext('created_at'));
-            $table->add_header(array('width' => '4%',  'align' => 'left', 'class' => 'edit'), 'Edit');
+            $table->add_header(array('width' => '4%',  'align' => 'left', 'class' => 'edit'), $this->gettext('edit'));
             $table->add_header(array('width' => '6%',  'align' => 'left', 'class' => 'delete'), $this->gettext('delete'));
 
             $db = $this->rc->get_dbh();
@@ -1432,10 +1434,10 @@ class scheduled_sending extends rcube_plugin
                 }
 
                 $delete_button = '<a href="#" class="delete-scheduled-message" data-id="' . rcube::Q($row['id']) . '">'
-                               . '<img style="vertical-align: middle;" src="' . rcube::Q($src) . '" height="16" alt="Delete">'
+                               . '<img style="vertical-align: middle;" src="' . rcube::Q($src) . '" height="16" alt="' . rcube::Q($this->gettext('delete')) . '">'
                                . '</a>';
 
-                $edit_button = '<a href="#" class="edit-scheduled-message" data-id="' . rcube::Q($row['id']) . '" data-ts="' . $scheduled_ts . '">Edit</a>';
+                $edit_button = '<a href="#" class="edit-scheduled-message" data-id="' . rcube::Q($row['id']) . '" data-ts="' . $scheduled_ts . '">' . rcube::Q($this->gettext('edit')) . '</a>';
 
                 $table->add(array('class' => 'edit'), $edit_button);
                 $table->add(array('class' => 'delete'), $delete_button);
