@@ -1150,7 +1150,7 @@ class scheduled_sending extends rcube_plugin
     }
     private function build_minimal_mime($from, $to, $cc, $bcc, $subject, $body, $is_html)
     {
-        $nl = "";
+        $nl = "\r\n";
         $headers = array();
         $headers[] = 'Date: ' . date('r');
         if ($from)   $headers[] = 'From: ' . $from;
@@ -1158,7 +1158,6 @@ class scheduled_sending extends rcube_plugin
         if ($cc)     $headers[] = 'Cc: ' . $cc;
         if ($subject !== '') $headers[] = 'Subject: ' . $subject;
         $headers[] = 'Message-ID: <' . uniqid() . '@localhost>';
-        $meta['msgid'] = end($headers); // store Message-ID header line
         $headers[] = 'MIME-Version: 1.0';
         if ($is_html) {
             $headers[] = 'Content-Type: text/html; charset=UTF-8';
