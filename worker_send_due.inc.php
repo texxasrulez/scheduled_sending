@@ -19,6 +19,21 @@ if (!function_exists('ss_debug')) {
 // Processes due messages with duplicate-send protection and retry/backoff.
 
 trait scheduled_sending_worker_trait {
+    private function ss_sanitize_envelope_from($value)
+    {
+        $value = (string) $value;
+        if (preg_match('/<([^>]+)>/', $value, $mm)) {
+            $value = $mm[1];
+        }
+
+        $value = trim($value);
+        if ($value === '' || preg_match('/[\r\n]/', $value)) {
+            return '';
+        }
+
+        return filter_var($value, FILTER_VALIDATE_EMAIL) ? $value : '';
+    }
+
     private function run_send_due_worker()
     {
         $rc  = $this->rc;
@@ -100,11 +115,9 @@ $res = $db->query($sql);if (!$res) {
             }
 
             // Envelope sender
-$env_from = '';
-if (isset($headers_arr['From'])) $env_from = $headers_arr['From'];
-if (preg_match('/<([^>]+)>/', $env_from, $mm)) $env_from = $mm[1];
-$env_from = trim($env_from);
-// Recipients from headers
+            $env_from = isset($headers_arr['From']) ? $this->ss_sanitize_envelope_from($headers_arr['From']) : '';
+
+            // Recipients from headers
             $to  = isset($headers_arr['To'])  ? $headers_arr['To']  : '';
             $cc  = isset($headers_arr['Cc'])  ? $headers_arr['Cc']  : '';
             $bcc = isset($headers_arr['Bcc']) ? $headers_arr['Bcc'] : '';
@@ -159,10 +172,8 @@ $env_from = trim($env_from);
                     if (method_exists($smtp, 'send_mail')) {
                         if (empty($rcpts_all)) { $ok = false; $err = 'no recipients found'; }
                         else {
-                            if (!$env_from) $env_from = isset($headers_arr['From']) ? $headers_arr['From'] : '';
+                            if (!$env_from) $env_from = isset($headers_arr['From']) ? $this->ss_sanitize_envelope_from($headers_arr['From']) : '';
                             if (!$env_from) { $ok = false; $err = 'no envelope sender'; }
-                            if (preg_match('/<([^>]+)>/', $env_from, $mm)) $env_from = $mm[1];
-                            $env_from = trim($env_from);
                             if (!$env_from) $env_from = 'mailer-daemon@localhost';
                             $ok = $smtp->send_mail($env_from, $rcpts_all, $headers_arr, $raw_body);
                         }
@@ -189,7 +200,8 @@ $env_from = trim($env_from);
                     $hdr_lines = array();
                     foreach ($hdr_arr as $k=>$v) $hdr_lines[] = $k.': '.$v;
                     $hdr_str = implode("\r\n", $hdr_lines);
-                    $php_opts = $env_from ? '-f' . $env_from : '';
+                    $mail_env_from = $this->ss_sanitize_envelope_from($env_from);
+                    $php_opts = $mail_env_from !== '' ? '-f' . $mail_env_from : '';
                     $ok = mail($to_hdr, $subject, $raw_body, $hdr_str, $php_opts);
                     if ($ok) {
                         $err = '';
@@ -212,7 +224,8 @@ $env_from = trim($env_from);
                         $hdr_lines = array();
                         foreach ($headers_arr as $k=>$v) $hdr_lines[] = $k.': '.$v;
                         $hdr_str = implode("\r\n", $hdr_lines);
-                        $php_opts = $env_from ? '-f' . $env_from : '';
+                        $mail_env_from = $this->ss_sanitize_envelope_from($env_from);
+                        $php_opts = $mail_env_from !== '' ? '-f' . $mail_env_from : '';
                         $ok = mail($to_hdr, $subject, $raw_body, $hdr_str, $php_opts);
                         if (!$ok) $err = 'mail() returned false'; else if (empty($err)) { $err = 'mail() returned false (no details)'; }
                     }
