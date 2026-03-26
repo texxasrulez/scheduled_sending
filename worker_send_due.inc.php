@@ -265,8 +265,18 @@ $env_from = trim($env_from);
                     ss_debug(array('msg'=>'imap post-send', 'err'=>$e->getMessage()));
                 }
 
-                $db->query("UPDATE $table SET status='sent', last_error=NULL, updated_at=UTC_TIMESTAMP() WHERE id=?", $id);
-                $this->log('worker sent', array('id'=>$id)); $sent_ok++;
+                // Only mark as sent when the send succeeded and no error is recorded.
+                if ($ok && empty($err)) {
+                    $db->query("UPDATE $table SET status='sent', last_error=NULL, updated_at=UTC_TIMESTAMP() WHERE id=?", $id);
+                    $this->log('worker sent', array('id'=>$id)); $sent_ok++;
+                } else {
+                    // Ensure we record a useful error and schedule a retry.
+                    $errMsg = $err ?: 'unknown failure';
+                    $db->query("UPDATE $table SET last_error=?, updated_at=UTC_TIMESTAMP(), status='queued', scheduled_at=UTC_TIMESTAMP()+INTERVAL 5 MINUTE WHERE id=?", (string)$errMsg, $id);
+                    $this->log('worker retry scheduled', array('id'=>$id, 'delay'=>300, 'attempts'=>1));
+                    if (!empty($errMsg)) { $this->log('worker retry reason', array('id'=>$id,'error'=>$errMsg)); $last_err = (string)$errMsg; }
+                    $failed++;
+                }
             } else {
                 $err = (string)$err; if ($err === '') { $err = 'unknown failure'; }
                 $db->query("UPDATE $table SET last_error=?, updated_at=UTC_TIMESTAMP(), status='queued', scheduled_at=UTC_TIMESTAMP()+INTERVAL 5 MINUTE WHERE id=?", (string)$err, $id);
