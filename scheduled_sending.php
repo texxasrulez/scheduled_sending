@@ -1263,12 +1263,15 @@ class scheduled_sending extends rcube_plugin
             $ok = false;
             if ($delivery === 'mail') {
                 // Split raw into header/body at first blank line
-                $parts = preg_split("/\\r?\\n\\r?\\n/", $raw, 2);
-                $hdrblock = $parts[0];
-                $body = isset($parts[1]) ? $parts[1] : '';
+                list($hdrblock, $body) = $this->ss_split_raw_message($raw);
 
                 // Build recipients
-                $rcpts = trim(implode(', ', array_filter(array($to, $cc, $bcc))));
+                $rcpts_list = array_values(array_unique(array_merge(
+                    $this->ss_extract_recipients($to),
+                    $this->ss_extract_recipients($cc),
+                    $this->ss_extract_recipients($bcc)
+                )));
+                $rcpts = count($rcpts_list) ? implode(', ', $rcpts_list) : trim(implode(', ', array_filter(array($to, $cc, $bcc))));
                 // Remove To/Subject headers from hdrblock to avoid duplication
                 $hdrblock = preg_replace('/^(Subject|To):.*\\r?\\n/im', '', $hdrblock);
 
@@ -1336,20 +1339,11 @@ class scheduled_sending extends rcube_plugin
 
     private function ss_parse_headers($raw)
     {
-        $lines = preg_split("/\\r?\\n/", $raw);
+        list($raw_headers,) = $this->ss_split_raw_message($raw);
+        $parsed = $this->ss_parse_raw_headers($raw_headers);
         $headers = array();
-        $current = '';
-        foreach ($lines as $ln) {
-            if ($ln === '') break;
-            if (preg_match('/^\\s+/', $ln) && $current) {
-                $headers[$current] .= ' ' . trim($ln);
-                continue;
-            }
-            if (strpos($ln, ':') !== false) {
-                list($k, $v) = explode(':', $ln, 2);
-                $current = strtolower(trim($k));
-                $headers[$current] = trim($v);
-            }
+        foreach ($parsed as $k => $v) {
+            $headers[strtolower(trim($k))] = trim($v);
         }
         return $headers;
     }
