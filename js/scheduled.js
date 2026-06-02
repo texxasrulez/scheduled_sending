@@ -62,9 +62,6 @@ function __ss_collect_attachment_meta(target){
       if (inflight) return;
       inflight = true;
       setTimeout(function(){ inflight = false; }, 1200);
-      // if inline binder already attached, let it do the work
-      if (typeof window.__SS_BOUND !== 'undefined') return;
-
       var when = document.getElementById('ss-when');
       if (!when || !when.value) { if (window.rcmail) rcmail.display_message(t('pick_future_time'), 'error'); return; }
       var d = new Date(when.value);

@@ -777,86 +777,6 @@ class scheduled_sending extends rcube_plugin
         // default value: local now + 30min (no seconds)
         $def = $this->ss_default_schedule_value();
 
-        // inline fallback binder: uses RC's http_post, de-duped, no full form submit
-        $inline = <<<HTML
-		<script>
-		(function(){
-		  if (window.__SS_BOUND) return; // avoid double binding
-		  window.__SS_BOUND = true;
-
-		  function nowTs(){ return Math.floor(Date.now()/1000); }
-
-		  function bind(){
-			var btn = document.getElementById('ss-schedule-btn');
-			if (!btn) return;
-			var inflight = false;
-			btn.addEventListener('click', function(ev){
-			  ev.preventDefault();
-			  if (inflight) return;
-			  var when = document.getElementById('ss-when');
-			  if (!when || !when.value) { if (window.rcmail) rcmail.display_message('Pick a future time', 'error'); return; }
-			  var d = new Date(when.value);
-			  if (isNaN(d.getTime()) || d.getTime() <= Date.now()) { if (window.rcmail) rcmail.display_message('Pick a future time', 'error'); return; }
-
-			  var form = document.getElementById('composeform') || btn.closest('form');
-			  if (!form) { if (window.rcmail) rcmail.display_message('Compose form not ready', 'error'); return; }
-
-			  // build payload (minimal safe fields)
-			  var data = {};
-			  var f = new FormData(form);
-			  function copyField(name, as){ if (f.has(name)) data[as||name] = f.get(name); }
-			  copyField('_id');
-			  copyField('_from'); // identity id
-			  copyField('_to');
-			  copyField('_cc');
-			  copyField('_bcc');
-			  copyField('_subject');
-			  copyField('_is_html');
-
-			  data['_schedule_at'] = when.value;
-			  data['_schedule_ts'] = Math.floor(d.getTime()/1000);
-			  data['_schedule_tzoffset'] = - (new Date().getTimezoneOffset()); // minutes
-
-			  // mark compose as clean to avoid discard modal
-			  if (window.rcmail) {
-				rcmail.env.compose_submit = true;
-				rcmail.env.is_dirty = false;
-				rcmail.env.exit_warning = false;
-			  }
-
-			  // AJAX via Roundcube
-			  inflight = true;
-			  btn.disabled = true;
-			  try {
-				if (window.rcmail && typeof rcmail.http_post === 'function') {
-				  rcmail.http_post('plugin.scheduled_sending.schedule', data);
-				} else {
-				  // last-resort sync fallback (should not happen)
-				  var xhr = new XMLHttpRequest();
-				  xhr.open('POST', '?_task=mail&_action=plugin.scheduled_sending.schedule&_remote=1', true);
-				  xhr.setRequestHeader('Content-Type','application/x-www-form-urlencoded');
-				  var parts = [];
-				  for (var k in data) { if (data.hasOwnProperty(k)) parts.push(encodeURIComponent(k)+'='+encodeURIComponent(data[k])); }
-				  xhr.send(parts.join('&'));
-				}
-			  } catch(e) {
-				inflight = false; btn.disabled = false;
-				if (window.console) console.error(e);
-			  }
-			  // re-enable after a short time; server will show toast
-			  setTimeout(function(){ inflight=false; btn.disabled=false; }, 1200);
-			}, { once:false });
-		  }
-
-		  if (document.readyState === 'loading') {
-			document.addEventListener('DOMContentLoaded', bind);
-		  } else {
-			bind();
-		  }
-		})();
-		</script>
-		HTML;
-
 				$send_at_label = rcube::Q($this->gettext('sendat'));
 				$send_later_label = rcube::Q($this->gettext('sendlater'));
 				$html = <<<HTML
@@ -865,7 +785,6 @@ class scheduled_sending extends rcube_plugin
 		  <input id="ss-when" type="datetime-local" name="_schedule_at" value="{$def}" />
 		  <button type="button" id="ss-schedule-btn" class="button">{$send_later_label}</button>
 		</div>
-		$inline
 		HTML;
         return $html;
     }
@@ -1167,6 +1086,20 @@ class scheduled_sending extends rcube_plugin
                VALUES (?, ?, ?, 'queued', ?,  ?, NOW(), NOW())";
         $ok = $db->query($q, $user_id, $identity_id, $scheduled_at, $raw_mime, json_encode($meta));
         $job_id = $db->insert_id();
+        if (!$ok) {
+            $db_error = '';
+            foreach (array('last_error', 'error') as $method) {
+                if (method_exists($db, $method)) {
+                    try {
+                        $db_error = (string) $db->$method();
+                    } catch (Exception $e) {
+                        $db_error = $e->getMessage();
+                    }
+                    if ($db_error !== '') break;
+                }
+            }
+            $this->ss_debug(array('msg'=>'queue insert failed','table'=>$table,'scheduled_at'=>$scheduled_at,'db_error'=>$db_error));
+        }
 
         // Save a Draft copy
         try {
