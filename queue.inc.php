@@ -1,6 +1,41 @@
 <?php
 // Queue viewer + actions for scheduled_sending
 trait scheduled_sending_queue_trait {
+    private function ss_queue_timezone()
+    {
+        $tz = (string) $this->rc->config->get('scheduled_timezone', '');
+        if ($tz === '') {
+            $tz = @date_default_timezone_get();
+        }
+
+        try {
+            return new DateTimeZone($tz ?: 'UTC');
+        } catch (Exception $e) {
+            return new DateTimeZone('UTC');
+        }
+    }
+
+    private function ss_queue_utc_to_timestamp($utc)
+    {
+        try {
+            $dt = new DateTimeImmutable((string) $utc, new DateTimeZone('UTC'));
+            return $dt->getTimestamp();
+        } catch (Exception $e) {
+            $ts = strtotime((string) $utc . ' UTC');
+            return $ts === false ? 0 : $ts;
+        }
+    }
+
+    private function ss_queue_format_scheduled_time($utc)
+    {
+        try {
+            $dt = new DateTimeImmutable((string) $utc, new DateTimeZone('UTC'));
+            return $dt->setTimezone($this->ss_queue_timezone())->format('Y-m-d H:i');
+        } catch (Exception $e) {
+            return (string) $utc;
+        }
+    }
+
     public function action_queue()
     {
         $rc = $this->rc;
@@ -29,7 +64,9 @@ trait scheduled_sending_queue_trait {
                 'id' => (int)$r['id'],
                 'status' => (string)$r['status'],
                 'scheduled_utc' => (string)$r['scheduled_at'],
-                'scheduled_ts' => strtotime($r['scheduled_at']),
+                'scheduled_local' => $this->ss_queue_format_scheduled_time($r['scheduled_at']),
+                'scheduled_tz' => $this->ss_queue_timezone()->getName(),
+                'scheduled_ts' => $this->ss_queue_utc_to_timestamp($r['scheduled_at']),
                 'created_at' => (string)$r['created_at'],
                 'updated_at' => (string)$r['updated_at'],
                 'to' => isset($meta['to']) ? (string)$meta['to'] : '',

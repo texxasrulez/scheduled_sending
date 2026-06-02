@@ -42,12 +42,13 @@
         ev.preventDefault();
         var id = this.getAttribute('data-id');
         var tsStr = this.getAttribute('data-ts') || '';
+        var localStr = this.getAttribute('data-local') || '';
         if (!id) return;
 
-        var defVal = '';
+        var defVal = localStr;
         if (tsStr) {
           var ts = parseInt(tsStr, 10);
-          if (ts > 0) {
+          if (!defVal && ts > 0) {
             var d = new Date(ts * 1000);
             defVal = d.getFullYear() + '-' +
                      pad(d.getMonth() + 1) + '-' +

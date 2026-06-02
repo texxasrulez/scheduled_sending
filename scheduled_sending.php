@@ -627,6 +627,47 @@ class scheduled_sending extends rcube_plugin
         return strlen(trim($text));
     }
 
+    private function ss_timezone()
+    {
+        $tz = (string) $this->rc->config->get('scheduled_timezone', '');
+        if ($tz === '') {
+            $tz = @date_default_timezone_get();
+        }
+
+        try {
+            return new DateTimeZone($tz ?: 'UTC');
+        } catch (Exception $e) {
+            return new DateTimeZone('UTC');
+        }
+    }
+
+    private function ss_utc_to_timestamp($utc)
+    {
+        try {
+            $dt = new DateTimeImmutable((string) $utc, new DateTimeZone('UTC'));
+            return $dt->getTimestamp();
+        } catch (Exception $e) {
+            $ts = strtotime((string) $utc . ' UTC');
+            return $ts === false ? 0 : $ts;
+        }
+    }
+
+    private function ss_format_scheduled_time($utc, $format = 'Y-m-d H:i')
+    {
+        try {
+            $dt = new DateTimeImmutable((string) $utc, new DateTimeZone('UTC'));
+            return $dt->setTimezone($this->ss_timezone())->format($format);
+        } catch (Exception $e) {
+            return (string) $utc;
+        }
+    }
+
+    private function ss_default_schedule_value()
+    {
+        $dt = new DateTimeImmutable('now', $this->ss_timezone());
+        return $dt->modify('+30 minutes')->format('Y-m-d\TH:i');
+    }
+
     function init()
     {
         $this->rc = rcmail::get_instance();
@@ -724,7 +765,7 @@ class scheduled_sending extends rcube_plugin
     private function build_inline_panel_html()
     {
         // default value: local now + 30min (no seconds)
-        $def = date('Y-m-d\TH:i', time() + 1800);
+        $def = $this->ss_default_schedule_value();
 
         // inline fallback binder: uses RC's http_post, de-duped, no full form submit
         $inline = <<<HTML
@@ -918,10 +959,16 @@ class scheduled_sending extends rcube_plugin
         $tzoff   = (int) rcube_utils::get_input_value('_schedule_tzoffset', rcube_utils::INPUT_POST); // minutes east of UTC
 
         if ($epoch <= 0 && $when) {
-            $t = strtotime($when);
-            if ($t) {
-                $epoch = $t;
-                $epoch_src = 'local';
+            try {
+                $dt = new DateTimeImmutable($when, $this->ss_timezone());
+                $epoch = $dt->getTimestamp();
+                $epoch_src = 'absolute';
+            } catch (Exception $e) {
+                $t = strtotime($when);
+                if ($t) {
+                    $epoch = $t;
+                    $epoch_src = 'local';
+                }
             }
         }
 
@@ -1137,11 +1184,7 @@ class scheduled_sending extends rcube_plugin
         // Friendly toast back to client
         if ($ok) {
             $this->ss_debug(array('msg'=>'schedule success','time'=>date('c')));
-            // Build local wall-time string for toast
-            $offmin = (int) rcube_utils::get_input_value('_schedule_tzoffset', rcube_utils::INPUT_POST);
-            $local_epoch = $epoch;
-            if ($offmin) { $local_epoch = $epoch - ($offmin * 60); }
-            $local_text = date('M j, Y g:i A', $local_epoch);
+            $local_text = $this->ss_format_scheduled_time($scheduled_at, 'M j, Y g:i A');
             $rc->output->command('display_message', 'Scheduled for ' . $local_text, 'confirmation');
         } else {
             $rc->output->command('display_message', 'Unable to schedule (DB)', 'error');
@@ -1407,13 +1450,13 @@ class scheduled_sending extends rcube_plugin
 
                 $table->add_row();
                 $table->add(array('class' => 'id'), rcube::Q($row['id']));
-                $table->add(array('class' => 'scheduled_at'), rcube::Q($row['scheduled_at']));
+                $table->add(array('class' => 'scheduled_at'), rcube::Q($this->ss_format_scheduled_time($row['scheduled_at'])));
                 $table->add(array('class' => 'subject'), $subject);
                 $table->add(array('class' => 'to'), $to);
                 $table->add(array('class' => 'status'), rcube::Q($row['status']));
                 $table->add(array('class' => 'created_at'), rcube::Q($row['created_at']));
 
-                $scheduled_ts = (int) strtotime($row['scheduled_at']);
+                $scheduled_ts = (int) $this->ss_utc_to_timestamp($row['scheduled_at']);
 
                 // Resolve plugin skin asset for *any* active skin, then fall back safely.
                 $skin = (string) $this->rc->config->get('skin', 'default');
@@ -1436,7 +1479,8 @@ class scheduled_sending extends rcube_plugin
                                . '<img style="vertical-align: middle;" src="' . rcube::Q($src) . '" height="16" alt="' . rcube::Q($this->gettext('delete')) . '">'
                                . '</a>';
 
-                $edit_button = '<a href="#" class="edit-scheduled-message" data-id="' . rcube::Q($row['id']) . '" data-ts="' . $scheduled_ts . '">' . rcube::Q($this->gettext('edit')) . '</a>';
+                $scheduled_local = $this->ss_format_scheduled_time($row['scheduled_at']);
+                $edit_button = '<a href="#" class="edit-scheduled-message" data-id="' . rcube::Q($row['id']) . '" data-ts="' . $scheduled_ts . '" data-local="' . rcube::Q($scheduled_local) . '">' . rcube::Q($this->gettext('edit')) . '</a>';
 
                 $table->add(array('class' => 'edit'), $edit_button);
                 $table->add(array('class' => 'delete'), $delete_button);

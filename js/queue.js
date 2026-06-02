@@ -40,7 +40,7 @@
           try { return new Intl.DateTimeFormat(undefined,{month:'short',day:'2-digit',year:'numeric',hour:'numeric',minute:'2-digit'}).format(dt); }
           catch(e){ var m=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][dt.getMonth()]; return m+' '+pad(dt.getDate())+', '+dt.getFullYear()+' '+((dt.getHours()+11)%12+1)+':'+pad(dt.getMinutes())+' '+(dt.getHours()<12?'AM':'PM'); }
         }
-        var local = dt ? fmt(dt) : '';
+        var local = r.scheduled_local || (dt ? fmt(dt) : '');
         var utc = (r.scheduled_utc||'').replace(' ', '&nbsp;');
         var actions = [];
         if (r.status === 'queued' || r.status === 'processing') {
