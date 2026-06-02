@@ -19,6 +19,86 @@ if (!function_exists('ss_debug')) {
 // Processes due messages with duplicate-send protection and retry/backoff.
 
 trait scheduled_sending_worker_trait {
+    private function ss_split_raw_message($raw)
+    {
+        $raw = (string) $raw;
+        $raw = preg_replace("/\r\n|\r|\n/", "\n", $raw);
+
+        // Some stored messages arrive with all headers glued together. Rebuild
+        // enough RFC822 structure for header parsing and body delivery.
+        if (strpos($raw, "\n") === false) {
+            $header_names = 'Date|From|To|Cc|Bcc|Subject|Message-ID|MIME-Version|Content-Type|Content-Transfer-Encoding';
+            $raw = preg_replace('/(?<!^)(?=(?:' . $header_names . '):)/i', "\n", $raw);
+        }
+
+        if (strpos($raw, "\n\n") === false) {
+            $raw = preg_replace('/(Content-Transfer-Encoding:\s*(?:7bit|8bit|base64|quoted-printable|binary))\s*/i', "$1\n\n", $raw, 1);
+        }
+
+        $parts = preg_split("/\n\n/", $raw, 2);
+        return array(
+            isset($parts[0]) ? str_replace("\n", "\r\n", $parts[0]) : '',
+            isset($parts[1]) ? str_replace("\n", "\r\n", $parts[1]) : '',
+        );
+    }
+
+    private function ss_parse_raw_headers($raw_headers)
+    {
+        $headers_arr = array();
+        $current = '';
+        foreach (preg_split("/\r\n|\r|\n/", (string) $raw_headers) as $line) {
+            if ($line === '') continue;
+            if ($line[0] === ' ' || $line[0] === "\t") {
+                $current .= ' ' . trim($line);
+            } else {
+                if ($current !== '' && preg_match('/^([A-Za-z0-9\-]+):\s*(.*)$/', $current, $mm)) {
+                    $name = $mm[1]; $value = $mm[2];
+                    if (isset($headers_arr[$name])) $headers_arr[$name] .= ', ' . $value;
+                    else $headers_arr[$name] = $value;
+                }
+                $current = $line;
+            }
+        }
+        if ($current !== '' && preg_match('/^([A-Za-z0-9\-]+):\s*(.*)$/', $current, $mm)) {
+            $name = $mm[1]; $value = $mm[2];
+            if (isset($headers_arr[$name])) $headers_arr[$name] .= ', ' . $value;
+            else $headers_arr[$name] = $value;
+        }
+        return $headers_arr;
+    }
+
+    private function ss_header_value($headers, $name)
+    {
+        foreach ((array) $headers as $k => $v) {
+            if (strcasecmp($k, $name) === 0) {
+                return $v;
+            }
+        }
+        return '';
+    }
+
+    private function ss_extract_recipients($value)
+    {
+        $recipients = array();
+        $value = (string) $value;
+        if ($value === '') return $recipients;
+
+        if (preg_match_all('/<([^<>\s]+@[^<>\s]+)>/', $value, $m)) {
+            foreach ($m[1] as $addr) {
+                $addr = trim($addr);
+                if (filter_var($addr, FILTER_VALIDATE_EMAIL)) $recipients[] = $addr;
+            }
+        }
+        if (preg_match_all('/(?<![A-Z0-9._%+\-])([A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,})(?![A-Z0-9._%+\-])/i', $value, $m)) {
+            foreach ($m[1] as $addr) {
+                $addr = trim($addr);
+                if (filter_var($addr, FILTER_VALIDATE_EMAIL)) $recipients[] = $addr;
+            }
+        }
+
+        return array_values(array_unique($recipients));
+    }
+
     private function ss_sanitize_envelope_from($value)
     {
         $value = (string) $value;
@@ -83,53 +163,22 @@ $res = $db->query($sql);if (!$res) {
             }
 
             // Split raw into headers/body
-            $parts = preg_split("/\r?\n\r?\n/", $raw, 2);
-            $raw_headers = isset($parts[0]) ? $parts[0] : '';
-            $raw_body    = isset($parts[1]) ? $parts[1] : '';
+            list($raw_headers, $raw_body) = $this->ss_split_raw_message($raw);
 
             // Parse headers with unfolding (handles multi-line/continued headers per RFC 5322)
-            $headers_arr = array();
-            $current = '';
-            foreach (preg_split("/\r?\n/", $raw_headers) as $line) {
-                if ($line === '') continue;
-                if ($line[0] === ' ' || $line[0] === "\t") {
-                    // continuation
-                    $current .= ' ' . trim($line);
-                } else {
-                    if ($current !== '') {
-                        if (preg_match('/^([A-Za-z0-9\-]+):\s*(.*)$/', $current, $mm)) {
-                            $name = $mm[1]; $value = $mm[2];
-                            if (isset($headers_arr[$name])) $headers_arr[$name] .= ', ' . $value;
-                            else $headers_arr[$name] = $value;
-                        }
-                    }
-                    $current = $line;
-                }
-            }
-            if ($current !== '') {
-                if (preg_match('/^([A-Za-z0-9\-]+):\s*(.*)$/', $current, $mm)) {
-                    $name = $mm[1]; $value = $mm[2];
-                    if (isset($headers_arr[$name])) $headers_arr[$name] .= ', ' . $value;
-                    else $headers_arr[$name] = $value;
-                }
-            }
+            $headers_arr = $this->ss_parse_raw_headers($raw_headers);
 
             // Envelope sender
-            $env_from = isset($headers_arr['From']) ? $this->ss_sanitize_envelope_from($headers_arr['From']) : '';
+            $env_from = $this->ss_sanitize_envelope_from($this->ss_header_value($headers_arr, 'From'));
 
             // Recipients from headers
-            $to  = isset($headers_arr['To'])  ? $headers_arr['To']  : '';
-            $cc  = isset($headers_arr['Cc'])  ? $headers_arr['Cc']  : '';
-            $bcc = isset($headers_arr['Bcc']) ? $headers_arr['Bcc'] : '';
+            $to  = $this->ss_header_value($headers_arr, 'To');
+            $cc  = $this->ss_header_value($headers_arr, 'Cc');
+            $bcc = $this->ss_header_value($headers_arr, 'Bcc');
             $rcpts_hdr = array();
             foreach (array($to, $cc, $bcc) as $_list) {
                 if (!$_list) continue;
-                foreach (preg_split('/\s*,\s*/', $_list) as $_addr) {
-                    $_addr = trim($_addr);
-                    if ($_addr === '') continue;
-                    if (preg_match('/<([^>]+)>/', $_addr, $mm)) $_addr = $mm[1];
-                    if (strpos($_addr, '@') !== false) $rcpts_hdr[] = $_addr;
-                }
+                $rcpts_hdr = array_merge($rcpts_hdr, $this->ss_extract_recipients($_list));
             }
 
             // Recipients from meta_json fallback
@@ -137,12 +186,7 @@ $res = $db->query($sql);if (!$res) {
             if (!empty($meta) && is_array($meta)) {
                 foreach (array('to','cc','bcc') as $_k) {
                     if (!empty($meta[$_k])) {
-                        foreach (preg_split('/\s*,\s*/', $meta[$_k]) as $_addr) {
-                            $_addr = trim($_addr);
-                            if ($_addr === '') continue;
-                            if (preg_match('/<([^>]+)>/', $_addr, $mm)) $_addr = $mm[1];
-                            if (strpos($_addr, '@') !== false) $rcpts_meta[] = $_addr;
-                        }
+                        $rcpts_meta = array_merge($rcpts_meta, $this->ss_extract_recipients($meta[$_k]));
                     }
                 }
             }
