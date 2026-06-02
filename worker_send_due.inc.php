@@ -120,7 +120,7 @@ trait scheduled_sending_worker_trait {
         $cfg = $rc->config;
         $db  = $rc->get_dbh();
 
-        $table   = $cfg->get('db_table_scheduled_sending', 'scheduled_queue');
+        $table   = $this->ss_queue_table();
         $batch   = (int)$cfg->get('scheduled_sending_batch', 25);
         if ($batch < 1) $batch = 25;
         $delivery = $cfg->get('scheduled_sending_delivery', 'smtp'); // 'smtp' | 'mail' | 'none'

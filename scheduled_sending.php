@@ -668,6 +668,16 @@ class scheduled_sending extends rcube_plugin
         return $dt->modify('+30 minutes')->format('Y-m-d\TH:i');
     }
 
+    private function ss_queue_table()
+    {
+        $cfg = $this->rc->config;
+        $table = $cfg->get('scheduled_sending_table', null);
+        if (!$table) {
+            $table = $cfg->get('db_table_scheduled_sending', null);
+        }
+        return $table ?: 'scheduled_queue';
+    }
+
     function init()
     {
         $this->rc = rcmail::get_instance();
@@ -1006,7 +1016,7 @@ class scheduled_sending extends rcube_plugin
         );
 
         // DB insert (no NULL raw_mime)
-        $table = $rc->config->get('scheduled_sending_table', 'scheduled_queue');
+        $table = $this->ss_queue_table();
         $db = $rc->get_dbh();
         // Build or accept raw MIME payload (minimal fallback if client does not send _raw_mime)
         $raw_mime = rcube_utils::get_input_value('_raw_mime', rcube_utils::INPUT_POST, true);
@@ -1228,7 +1238,7 @@ class scheduled_sending extends rcube_plugin
         }
 
         $db    = $rc->get_dbh();
-        $table = $cfg->get('db_table_scheduled_sending', 'scheduled_sending_queue');
+        $table = $this->ss_queue_table();
         $batch = (int)$cfg->get('scheduled_sending_batch', 25);
         if ($batch < 1) $batch = 25;
         $delivery = $cfg->get('scheduled_sending_delivery', 'mail'); // 'mail' or 'none' (dry-run)
@@ -1430,7 +1440,7 @@ class scheduled_sending extends rcube_plugin
             $table->add_header(array('width' => '6%',  'align' => 'left', 'class' => 'delete'), $this->gettext('delete'));
 
             $db = $this->rc->get_dbh();
-            $table_name = $this->rc->config->get('scheduled_sending_table', 'scheduled_queue');
+            $table_name = $this->ss_queue_table();
             $user_id = $this->rc->user->ID;
 
             $sql = "SELECT id, scheduled_at, meta_json, status, created_at FROM {$table_name} ".

@@ -50,9 +50,9 @@ trait scheduled_sending_queue_trait {
         $rc  = $this->rc;
         $cfg = $rc->config;
         $db  = $rc->get_dbh();
-        $table = $cfg->get('db_table_scheduled_sending', 'scheduled_queue');
+        $table = $this->ss_queue_table();
         $limit = 200;
-        $q = $db->query("SELECT id, user_id, identity_id, status, scheduled_at, created_at, updated_at, meta_json, last_error FROM $table WHERE status IN ('queued','processing','error') ORDER BY scheduled_at ASC LIMIT $limit");
+        $q = $db->query("SELECT id, user_id, identity_id, status, scheduled_at, created_at, updated_at, meta_json, last_error FROM $table WHERE status IN ('queued','processing','sending','error') ORDER BY scheduled_at ASC LIMIT $limit");
         $rows = array();
         while ($q && ($r = $db->fetch_assoc($q))) {
             $meta = array();
@@ -85,10 +85,10 @@ trait scheduled_sending_queue_trait {
         $rc  = $this->rc;
         $cfg = $rc->config;
         $db  = $rc->get_dbh();
-        $table = $cfg->get('db_table_scheduled_sending', 'scheduled_queue');
+        $table = $this->ss_queue_table();
         $id = (int) rcube_utils::get_input_value('id', rcube_utils::INPUT_POST);
         if ($id > 0) {
-            $db->query("UPDATE $table SET status='canceled', updated_at=NOW() WHERE id=? AND status IN ('queued','processing')", $id);
+            $db->query("UPDATE $table SET status='canceled', updated_at=NOW() WHERE id=? AND status IN ('queued','processing','sending')", $id);
         }
         $rc->output->command('display_message', $this->gettext('queue_cancel_ok'), 'confirmation');
         $rc->output->send();
@@ -99,7 +99,7 @@ trait scheduled_sending_queue_trait {
         $rc  = $this->rc;
         $cfg = $rc->config;
         $db  = $rc->get_dbh();
-        $table = $cfg->get('db_table_scheduled_sending', 'scheduled_queue');
+        $table = $this->ss_queue_table();
         $id = (int) rcube_utils::get_input_value('id', rcube_utils::INPUT_POST);
         $ts = (int) rcube_utils::get_input_value('at_ts', rcube_utils::INPUT_POST);
         if ($id > 0 && $ts > 0) {
@@ -115,7 +115,7 @@ trait scheduled_sending_queue_trait {
         $rc  = $this->rc;
         $cfg = $rc->config;
         $db  = $rc->get_dbh();
-        $table = $cfg->get('db_table_scheduled_sending', 'scheduled_queue');
+        $table = $this->ss_queue_table();
         $id = (int) rcube_utils::get_input_value('_id', rcube_utils::INPUT_POST);
         $user_id = $rc->user->ID;
 

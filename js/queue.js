@@ -43,7 +43,7 @@
         var local = r.scheduled_local || (dt ? fmt(dt) : '');
         var utc = (r.scheduled_utc||'').replace(' ', '&nbsp;');
         var actions = [];
-        if (r.status === 'queued' || r.status === 'processing') {
+        if (r.status === 'queued' || r.status === 'processing' || r.status === 'sending') {
           actions.push('<button class="button ssq-cancel" data-id="'+r.id+'">'+t('cancel')+'</button>');
           actions.push('<button class="button ssq-bump10" data-id="'+r.id+'">'+t('bump10')+'</button>');
         } else {
