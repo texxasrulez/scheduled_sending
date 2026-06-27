@@ -9,3 +9,20 @@
 .listing.iconized tr.scheduled_sending>td.section:before {
   content: "\f017"
 }
+
+/* Dark/Light mode support for Roundcube Elastic */
+#ss-inline-schedule.ss-row {
+  background: var(--layout-content-bg, var(--body-bg, transparent)) !important;
+  color: var(--text-color, inherit) !important;
+  border-color: var(--border-color, var(--border, #ddd)) !important;
+}
+
+html.dark-mode #ss-inline-schedule.ss-row,
+body.dark-mode #ss-inline-schedule.ss-row,
+.dark-mode #ss-inline-schedule.ss-row,
+html[data-theme="dark"] #ss-inline-schedule.ss-row,
+body[data-theme="dark"] #ss-inline-schedule.ss-row {
+  background: #1f2b30 !important;
+  color: #e8eef2 !important;
+  border-color: #405057 !important;
+}

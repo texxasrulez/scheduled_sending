@@ -145,6 +145,8 @@ $config['scheduled_sending_lock_timeout'] = 10; // seconds
 
 **Important: set a strong** `scheduled_sending_worker_token` (32+ random characters).
 
+When `scheduled_sending_delivery` is `smtp`, scheduled rows store the scheduling user's SMTP username and encrypted SMTP password in `meta_json` when available. This lets the worker send later with the same Roundcube SMTP credentials in multi-user installations.
+
 ---
 
 ## 5) Enable the plugin in Roundcube
@@ -167,7 +169,7 @@ The plugin exposes an **HTTP worker action** that sends all messages scheduled a
 **Worker URL shape:**
 
 ```
-https://YOUR-ROUNDCUBE-BASE/?_task=mail&_action=plugin.scheduled_sending.send_due&_token=32_character_key
+https://YOUR-ROUNDCUBE-BASE/?_task=login&_action=plugin.scheduled_sending.worker&_token=32_character_key
 ```
 
 There are two convenient ways to call it periodically:
@@ -196,13 +198,13 @@ SS_WORKER_URL="https://mail.example.com/roundcube/" SS_WORKER_TOKEN="32_characte
 ### B) Direct HTTP call (curl/wget)
 
 ```bash
-curl -fsS "https://mail.example.com/roundcube/?_task=mail&_action=plugin.scheduled_sending.send_due&_token=32_character_key"
+curl -fsS "https://mail.example.com/roundcube/?_task=login&_action=plugin.scheduled_sending.worker&_token=32_character_key"
 ```
 
 Cron variant:
 
 ```cron
-* * * * * curl -fsS "https://mail.example.com/roundcube/?_task=mail&_action=plugin.scheduled_sending.send_due&_token=32_character_key" >> /var/log/roundcube/scheduled_worker.log 2>&1
+* * * * * curl -fsS "https://mail.example.com/roundcube/?_task=login&_action=plugin.scheduled_sending.worker&_token=32_character_key" >> /var/log/roundcube/scheduled_worker.log 2>&1
 ```
 
 > The worker is idempotent and gated by a lock (`scheduled_sending_lock_key` / timeout) to avoid overlap.
@@ -227,6 +229,7 @@ Cron variant:
 - **Nothing gets sent**: verify the cron is running and the URL points to your Roundcube base. Check that due items exist in `scheduled_queue` and `status` is `queued`.
 - **Timezones**: UI may use `scheduled_timezone`; storage is UTC. Ensure your server clock is correct (NTP) and PHP `date.timezone` is set.
 - **Mail transport**: `scheduled_sending_delivery` uses Roundcube’s SMTP by default. If using `mail` or a relay, ensure it’s configured correctly in Roundcube.
+- **SMTP credentials**: queued SMTP messages rely on the encrypted credential values captured in `meta_json` at schedule time. If a user changes their SMTP password before the worker runs, reschedule the message.
 - **Locks**: if you see messages about an active lock, either reduce the cron frequency or increase `scheduled_sending_lock_timeout`.
 
 ---
@@ -265,3 +268,14 @@ Zelle (Zelle is integrated within many major banks Mobile Apps by default) - Jus
 No Zelle in your banks mobile app, no problem, just click [Paypal](https://paypal.me/texxasrulez?locale.x=en_US) and I can make a Starbucks run ...
 
 I appreciate the interest in this plugin and hope all the best ...
+
+## Versioning
+- `scheduled_sending` now keeps its canonical version in `scheduled_sending::PLUGIN_VERSION` inside `scheduled_sending.php`.
+- `scheduled_sending::info()` exposes the plugin metadata array used for self-identification.
+- Development builds should use a `+dev` suffix such as `1.0.0+dev`.
+- Release builds should use a clean tagged version such as `1.0.0`.
+
+For a release bump:
+1. Update `scheduled_sending::PLUGIN_VERSION` in `scheduled_sending.php` or run `sh scripts/bump-version.sh 1.0.0`.
+2. Update `CHANGELOG.md`.
+3. Create the matching release tag after verification.

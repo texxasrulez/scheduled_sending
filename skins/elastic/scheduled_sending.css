@@ -14,3 +14,36 @@
 .button-sendlater .icon{margin-right:.3em}
 
 #ss-fab{position:fixed;right:16px;bottom:16px;z-index:10020}
+
+/* Dark/Light mode support for Roundcube Elastic */
+#scheduled-sending-modal .ss-card {
+  background: var(--layout-content-bg, var(--body-bg, #fff)) !important;
+  color: var(--text-color, inherit) !important;
+  border: 1px solid var(--border-color, var(--border, #ddd)) !important;
+}
+
+#scheduled-sending-modal input[type="datetime-local"] {
+  background: var(--input-bg-color, var(--body-bg, #fff)) !important;
+  color: var(--input-text-color, var(--text-color, inherit)) !important;
+  border: 1px solid var(--input-border-color, var(--border-color, #ccc)) !important;
+}
+
+html.dark-mode #scheduled-sending-modal .ss-card,
+body.dark-mode #scheduled-sending-modal .ss-card,
+.dark-mode #scheduled-sending-modal .ss-card,
+html[data-theme="dark"] #scheduled-sending-modal .ss-card,
+body[data-theme="dark"] #scheduled-sending-modal .ss-card {
+  background: #1f2b30 !important;
+  color: #e8eef2 !important;
+  border-color: #405057 !important;
+}
+
+html.dark-mode #scheduled-sending-modal input[type="datetime-local"],
+body.dark-mode #scheduled-sending-modal input[type="datetime-local"],
+.dark-mode #scheduled-sending-modal input[type="datetime-local"],
+html[data-theme="dark"] #scheduled-sending-modal input[type="datetime-local"],
+body[data-theme="dark"] #scheduled-sending-modal input[type="datetime-local"] {
+  background: #263238 !important;
+  color: #e8eef2 !important;
+  border-color: #52636b !important;
+}

@@ -7,7 +7,22 @@ require_once __DIR__ . '/queue.inc.php';
  */
 class scheduled_sending extends rcube_plugin
 {
+    const PLUGIN_VERSION = '1.3.1';
+    const PLUGIN_INFO = array(
+        'name' => 'scheduled_sending',
+        'vendor' => 'Gene Hawkins',
+        'version' => self::PLUGIN_VERSION,
+        'license' => 'GPL-3.0',
+        'uri' => 'https://github.com/texxasrulez/scheduled_sending',
+    );
+
+    public static function info(): array
+    {
+        return self::PLUGIN_INFO;
+    }
     
+	public $version = self::PLUGIN_VERSION;
+        
     // Unified debug logger; respects config('scheduled_debug', false)
     private function ss_debug($payload) {
         try {
@@ -343,6 +358,162 @@ class scheduled_sending extends rcube_plugin
             return array('body' => $candidate['body'], 'is_html' => $candidate['is_html']);
         }
         return array('body' => $body, 'is_html' => $is_html);
+    }
+
+    private function _ss_decrypt_session_password($value)
+    {
+        if (!is_string($value) || $value === '') return '';
+
+        try {
+            $rc = $this->rc ?: rcmail::get_instance();
+            if ($rc && method_exists($rc, 'decrypt')) {
+                $plain = $rc->decrypt($value);
+                if (is_string($plain) && $plain !== '') return $plain;
+            }
+        } catch (Exception $e) {
+            $this->ss_debug(array('msg' => 'smtp_password_decrypt_failed'));
+        }
+
+        return '';
+    }
+
+    private function _ss_capture_smtp_credentials()
+    {
+        try {
+            $rc = $this->rc ?: rcmail::get_instance();
+            $cfg = $rc->config;
+            $smtp_user = (string) $cfg->get('smtp_user', '');
+            $smtp_pass = (string) $cfg->get('smtp_pass', '');
+            $login_user = '';
+            $login_pass = '';
+
+            if (isset($_SESSION) && is_array($_SESSION)) {
+                if (!empty($_SESSION['username'])) {
+                    $login_user = (string) $_SESSION['username'];
+                }
+                if (!empty($_SESSION['password'])) {
+                    $login_pass = $this->_ss_decrypt_session_password((string) $_SESSION['password']);
+                }
+            }
+
+            if ($login_user === '' && $rc->user && !empty($rc->user->data['username'])) {
+                $login_user = (string) $rc->user->data['username'];
+            }
+
+            if ($smtp_user === '%u') {
+                $smtp_user = $login_user;
+            }
+            if ($smtp_pass === '%p') {
+                $smtp_pass = $login_pass;
+            }
+
+            $meta = array();
+            if ($smtp_user !== '') {
+                $meta['smtp_user'] = $smtp_user;
+            }
+            if ($smtp_pass !== '' && method_exists($rc, 'encrypt')) {
+                $meta['smtp_pass_enc'] = $rc->encrypt($smtp_pass);
+            }
+
+            return $meta;
+        } catch (Exception $e) {
+            $this->ss_debug(array('msg' => 'smtp_credential_capture_failed', 'err' => $e->getMessage()));
+            return array();
+        }
+    }
+
+    private function _ss_apply_smtp_credentials($meta)
+    {
+        $restore = array();
+
+        if (!is_array($meta)) return $restore;
+
+        try {
+            $rc = $this->rc ?: rcmail::get_instance();
+            $cfg = $rc->config;
+
+            if (!empty($meta['smtp_user'])) {
+                $restore['smtp_user'] = $cfg->get('smtp_user', null);
+                $cfg->set('smtp_user', (string) $meta['smtp_user']);
+            }
+            if (!empty($meta['smtp_pass_enc']) && method_exists($rc, 'decrypt')) {
+                $plain = $rc->decrypt((string) $meta['smtp_pass_enc']);
+                if (is_string($plain) && $plain !== '') {
+                    $restore['smtp_pass'] = $cfg->get('smtp_pass', null);
+                    $cfg->set('smtp_pass', $plain);
+                }
+            }
+        } catch (Exception $e) {
+            $this->ss_debug(array('msg' => 'smtp_credential_apply_failed', 'err' => $e->getMessage()));
+        }
+
+        return $restore;
+    }
+
+    private function _ss_restore_config_values($values)
+    {
+        if (!is_array($values) || !count($values)) return;
+
+        try {
+            $rc = $this->rc ?: rcmail::get_instance();
+            foreach ($values as $key => $value) {
+                $rc->config->set($key, $value);
+            }
+        } catch (Exception $e) {
+            $this->ss_debug(array('msg' => 'smtp_config_restore_failed', 'err' => $e->getMessage()));
+        }
+    }
+
+    private function _ss_split_raw_message($raw)
+    {
+        $parts = preg_split("/\r?\n\r?\n/", (string) $raw, 2);
+        $raw_headers = isset($parts[0]) ? $parts[0] : '';
+        $body = isset($parts[1]) ? $parts[1] : '';
+        $headers = array();
+        $current = '';
+
+        foreach (preg_split("/\r?\n/", $raw_headers) as $line) {
+            if ($line === '') continue;
+            if (($line[0] === ' ' || $line[0] === "\t") && $current !== '') {
+                $current .= ' ' . trim($line);
+                continue;
+            }
+            if ($current !== '' && preg_match('/^([A-Za-z0-9\-]+):\s*(.*)$/', $current, $m)) {
+                $headers[$m[1]] = $m[2];
+            }
+            $current = $line;
+        }
+
+        if ($current !== '' && preg_match('/^([A-Za-z0-9\-]+):\s*(.*)$/', $current, $m)) {
+            $headers[$m[1]] = $m[2];
+        }
+
+        return array($headers, $body, $raw_headers);
+    }
+
+    private function _ss_headers_to_raw($headers, $body)
+    {
+        $lines = array();
+        foreach ((array) $headers as $key => $value) {
+            if (strcasecmp((string) $key, 'Bcc') === 0) continue;
+            $lines[] = $key . ': ' . $value;
+        }
+
+        return implode("\r\n", $lines) . "\r\n\r\n" . (string) $body;
+    }
+
+    private function _ss_format_scheduled_at_for_display($utc)
+    {
+        try {
+            $tz = (string) $this->rc->config->get('scheduled_timezone', 'UTC');
+            if ($tz === '') $tz = 'UTC';
+            $dt = new DateTime((string) $utc, new DateTimeZone('UTC'));
+            $dt->setTimezone(new DateTimeZone($tz));
+            return $dt->format('Y-m-d H:i:s');
+        } catch (Exception $e) {
+            $this->ss_debug(array('msg' => 'scheduled_at_display_tz_failed', 'err' => $e->getMessage()));
+            return (string) $utc;
+        }
     }
 
     /**
@@ -762,6 +933,42 @@ class scheduled_sending extends rcube_plugin
 			  copyField('_subject');
 			  copyField('_is_html');
 
+			  function isPlainHtml(html, text) {
+				if (!html) return true;
+				var s = ('' + html).replace(/<div[^>]*id=['"]?_rc_sig['"]?[^>]*>[\s\S]*?<\/div>/gi, '');
+				s = s.replace(/&nbsp;/gi, ' ');
+				if (/<(?!\/?(p|br)\b)/i.test(s)) return false;
+				var t = s.replace(/<\/p>\s*<p[^>]*>/gi, "\\n\\n")
+				  .replace(/<br\s*\/?>/gi, "\\n")
+				  .replace(/<\/?p[^>]*>/gi, '')
+				  .replace(/<[^>]+>/g, '')
+				  .trim();
+				var plain = ('' + (text || '')).trim();
+				return t === plain || t === plain.replace(/\n+$/, '');
+			  }
+
+			  try { if (window.tinyMCE && tinyMCE.triggerSave) tinyMCE.triggerSave(); } catch(e) {}
+			  try { if (window.rcmail && rcmail.editor && typeof rcmail.editor.save === 'function') rcmail.editor.save(); } catch(e) {}
+			  try {
+				var html = '', text = '';
+				if (window.tinyMCE && tinyMCE.activeEditor) {
+				  html = tinyMCE.activeEditor.getContent({format:'html'}) || '';
+				  text = tinyMCE.activeEditor.getContent({format:'text'}) || '';
+				}
+				if (!text) {
+				  var textarea = form.querySelector('textarea[name="_message"]');
+				  if (textarea) text = textarea.value || '';
+				}
+				if (html && !isPlainHtml(html, text)) {
+				  data['_message_html'] = html;
+				  data['_is_html'] = 1;
+				} else {
+				  data['_message'] = text || '';
+				  delete data['_message_html'];
+				  delete data['_is_html'];
+				}
+			  } catch(e) {}
+
 			  data['_schedule_at'] = when.value;
 			  data['_schedule_ts'] = Math.floor(d.getTime()/1000);
 			  data['_schedule_tzoffset'] = - (new Date().getTimezoneOffset()); // minutes
@@ -957,6 +1164,7 @@ class scheduled_sending extends rcube_plugin
             'subj' => rcube_utils::get_input_value('_subject', rcube_utils::INPUT_POST),
             'html' => (int) rcube_utils::get_input_value('_is_html', rcube_utils::INPUT_POST),
         );
+        $meta = array_merge($meta, $this->_ss_capture_smtp_credentials());
 
         // DB insert (no NULL raw_mime)
         $table = $rc->config->get('scheduled_sending_table', 'scheduled_queue');
@@ -1002,6 +1210,7 @@ class scheduled_sending extends rcube_plugin
             $hydrated = $this->_ss_resolve_body_from_context($compose_ctx, $body, $is_html);
             $body = $hydrated['body'];
             $is_html = $hydrated['is_html'];
+            $current_body_available = !$this->_ss_body_is_empty($body, $is_html);
 
             $attach_ids = rcube_utils::get_input_value('_attach_ids', rcube_utils::INPUT_POST);
             if (!is_array($attach_ids)) { $attach_ids = $attach_ids ? array($attach_ids) : array(); }
@@ -1027,11 +1236,10 @@ class scheduled_sending extends rcube_plugin
                 $this->ss_debug(array('msg'=>'compose_id_missing'));
             }
 
-            
-            // Try to reuse existing Draft (captures attachments) before falling back to minimal MIME
+            // Use draft data only when there is no current compose body to avoid stale draft text.
             $draft_uid_post = (int) rcube_utils::get_input_value('_draft_uid', rcube_utils::INPUT_POST);
             $draft_mime = '';
-            if ($draft_uid_post > 0) {
+            if (!$current_body_available && $draft_uid_post > 0) {
                 try {
                     $rc = $this->rc ?: rcmail::get_instance();
                     $storage = $rc->get_storage();
@@ -1055,16 +1263,20 @@ class scheduled_sending extends rcube_plugin
                     $this->ss_debug(array('msg'=>'draft_uid_fetch_err','err'=>$e->getMessage()));
                 }
             }
-            if ($draft_mime === '') {
+            if (!$current_body_available && $draft_mime === '') {
                 $draft_mime = $this->_ss_try_fetch_draft_mime($subject, $from);
             }
 
             $draft_used = false;
-            if ($draft_mime === '' && $compose_mime !== '') {
+            if ($current_body_available && $compose_mime !== '') {
+                $draft_mime = $compose_mime;
+                $draft_used = true;
+                $this->ss_debug(array('msg'=>'compose_mime_used','compose_id'=>$compose_id,'reason'=>'current_body'));
+            } elseif ($draft_mime === '' && $compose_mime !== '') {
                 $draft_mime = $compose_mime;
                 $draft_used = true;
                 $this->ss_debug(array('msg'=>'compose_mime_used','compose_id'=>$compose_id,'reason'=>'no_draft'));
-            } elseif ($draft_mime !== '' && $compose_mime !== '' && $compose_mime !== $draft_mime) {
+            } elseif (!$current_body_available && $draft_mime !== '' && $compose_mime !== '' && $compose_mime !== $draft_mime) {
                 $draft_attach_count = $this->_ss_mime_attachment_count($draft_mime);
                 $draft_body_len = $this->_ss_mime_body_length($draft_mime);
                 $input_body_text = $is_html ? trim(strip_tags((string)$body)) : trim((string)$body);
@@ -1188,7 +1400,7 @@ class scheduled_sending extends rcube_plugin
         $table = $cfg->get('db_table_scheduled_sending', 'scheduled_sending_queue');
         $batch = (int)$cfg->get('scheduled_sending_batch', 25);
         if ($batch < 1) $batch = 25;
-        $delivery = $cfg->get('scheduled_sending_delivery', 'mail'); // 'mail' or 'none' (dry-run)
+        $delivery = $cfg->get('scheduled_sending_delivery', 'smtp'); // 'smtp', 'mail', or 'none' (dry-run)
 
         $sel = $db->query(
             "SELECT id,user_id,identity_id,scheduled_at,raw_mime,meta_json,status FROM $table WHERE status='queued' AND scheduled_at <= ? ORDER BY scheduled_at ASC LIMIT $batch",
@@ -1203,6 +1415,11 @@ class scheduled_sending extends rcube_plugin
         foreach ($rows as $row) {
             $id  = (int)$row['id'];
             $raw = (string)$row['raw_mime'];
+            $meta = array();
+            if (!empty($row['meta_json'])) {
+                $tmp = json_decode($row['meta_json'], true);
+                if (is_array($tmp)) $meta = $tmp;
+            }
             if ($raw === '') {
                 $db->query("UPDATE $table SET status = 'error', updated_at = NOW() WHERE id = ?", $id);
                 $this->ss_debug(array('msg'=>'empty raw_mime','id'=>$id));
@@ -1210,6 +1427,7 @@ class scheduled_sending extends rcube_plugin
             }
 
             $hdrs  = $this->ss_parse_headers($raw);
+            list($headers_arr, $raw_body) = $this->_ss_split_raw_message($raw);
             $from  = isset($hdrs['from']) ? $hdrs['from'] : '';
             $to    = isset($hdrs['to']) ? $hdrs['to'] : '';
             $cc    = isset($hdrs['cc']) ? $hdrs['cc'] : '';
@@ -1218,7 +1436,73 @@ class scheduled_sending extends rcube_plugin
             $msgid = isset($hdrs['message-id']) ? $hdrs['message-id'] : '';
 
             $ok = false;
-            if ($delivery === 'mail') {
+            $send_error = '';
+            if ($delivery === 'smtp') {
+                $err = '';
+                $rcpts = array();
+                foreach (array($to, $cc, $bcc, isset($meta['to']) ? $meta['to'] : '', isset($meta['cc']) ? $meta['cc'] : '', isset($meta['bcc']) ? $meta['bcc'] : '') as $list) {
+                    if (!$list) continue;
+                    foreach (preg_split('/\s*,\s*/', $list) as $addr) {
+                        $addr = trim($addr);
+                        if ($addr === '') continue;
+                        if (preg_match('/<([^>]+)>/', $addr, $m)) $addr = $m[1];
+                        if (filter_var($addr, FILTER_VALIDATE_EMAIL)) $rcpts[] = $addr;
+                    }
+                }
+                $rcpts = array_values(array_unique($rcpts));
+
+                $env_from = '';
+                if ($from && preg_match('/<([^>]+)>/', $from, $m)) {
+                    $env_from = $m[1];
+                } elseif ($from && filter_var($from, FILTER_VALIDATE_EMAIL)) {
+                    $env_from = $from;
+                }
+
+                if (!isset($headers_arr['Date'])) {
+                    $headers_arr['Date'] = gmdate('D, d M Y H:i:s') . ' +0000';
+                }
+                if (!isset($headers_arr['Message-ID']) && $env_from) {
+                    $domain = substr(strrchr($env_from, '@'), 1);
+                    $headers_arr['Message-ID'] = '<ss-' . bin2hex(random_bytes(8)) . '@' . ($domain ?: 'localhost') . '>';
+                }
+                foreach (array_keys($headers_arr) as $hname) {
+                    if (strcasecmp($hname, 'Bcc') === 0) unset($headers_arr[$hname]);
+                }
+
+                try {
+                    if (!class_exists('rcube_smtp')) {
+                        $err = 'rcube_smtp unavailable';
+                    } elseif (empty($rcpts)) {
+                        $err = 'no recipients found';
+                    } elseif ($env_from === '') {
+                        $err = 'no envelope sender';
+                    } else {
+                        $restore = $this->_ss_apply_smtp_credentials($meta);
+                        $smtp = new rcube_smtp($rc->config);
+                        if (method_exists($smtp, 'send_mail')) {
+                            $ok = $smtp->send_mail($env_from, $rcpts, $headers_arr, $raw_body);
+                        } elseif (method_exists($smtp, 'send_message')) {
+                            $wire_raw = $this->_ss_headers_to_raw($headers_arr, $raw_body);
+                            $ok = $smtp->send_message($env_from, $rcpts, $wire_raw);
+                        } else {
+                            $err = 'rcube_smtp: no send_* method';
+                        }
+                        if (!$ok && method_exists($smtp, 'get_error')) {
+                            $smtp_err = $smtp->get_error();
+                            if ($smtp_err) $err = json_encode($smtp_err);
+                        }
+                        $this->_ss_restore_config_values($restore);
+                    }
+                } catch (Exception $e) {
+                    $ok = false;
+                    $err = $e->getMessage();
+                    if (isset($restore)) $this->_ss_restore_config_values($restore);
+                }
+
+                if (!$ok && $err === '') $err = 'smtp send returned false';
+                $send_error = $err;
+                $this->ss_debug(array('msg'=>'worker smtp','id'=>$id,'ok'=>(bool)$ok,'rcpts'=>count($rcpts),'err'=>$err));
+            } elseif ($delivery === 'mail') {
                 // Split raw into header/body at first blank line
                 $parts = preg_split("/\\r?\\n\\r?\\n/", $raw, 2);
                 $hdrblock = $parts[0];
@@ -1235,6 +1519,7 @@ class scheduled_sending extends rcube_plugin
                 }
 
                 $ok = @mail($rcpts, $subj, $body, $hdrblock, $params);
+                if (!$ok) $send_error = 'mail() returned false';
                 $this->ss_debug(array('msg'=>'worker mail()','id'=>$id,'ok'=>(bool)$ok,'rcpts'=>$rcpts));
             } else {
                 // dry-run
@@ -1282,7 +1567,7 @@ class scheduled_sending extends rcube_plugin
                 }
             }
 		else {
-                $db->query("UPDATE $table SET status = 'error', updated_at = NOW() WHERE id = ?", $id);
+                $db->query("UPDATE $table SET status = 'error', last_error = ?, updated_at = NOW() WHERE id = ?", $send_error, $id);
             }
         }
 
@@ -1404,10 +1689,11 @@ class scheduled_sending extends rcube_plugin
                 $meta = json_decode($row['meta_json'], true);
                 $to = isset($meta['to']) ? rcube::Q($meta['to']) : '';
                 $subject = isset($meta['subj']) ? rcube::Q($meta['subj']) : '';
+                $scheduled_display = $this->_ss_format_scheduled_at_for_display($row['scheduled_at']);
 
                 $table->add_row();
                 $table->add(array('class' => 'id'), rcube::Q($row['id']));
-                $table->add(array('class' => 'scheduled_at'), rcube::Q($row['scheduled_at']));
+                $table->add(array('class' => 'scheduled_at'), rcube::Q($scheduled_display));
                 $table->add(array('class' => 'subject'), $subject);
                 $table->add(array('class' => 'to'), $to);
                 $table->add(array('class' => 'status'), rcube::Q($row['status']));
