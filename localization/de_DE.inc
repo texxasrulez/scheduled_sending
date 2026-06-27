@@ -30,4 +30,6 @@ $labels['compose_form_not_ready'] = 'Kompositionsformular nicht bereit';
 $labels['reschedule_prompt'] = 'Neue Sendezeit eingeben (JJJJ-MM-TT HH:MM, Ihre Ortszeit):';
 $labels['reschedule_invalid'] = 'Datum/Uhrzeit konnte nicht geparst werden. Verwenden Sie das Format JJJJ-MM-TT HH:MM.';
 $labels['reschedule_future'] = 'Die neue Zeit muss in der Zukunft liegen.';
+$labels['recipient_prompt'] = 'E-Mail-Adresse, an die gesendet werden soll';
+$labels['recipient_required'] = 'Empfänger erforderlich';
 ?>

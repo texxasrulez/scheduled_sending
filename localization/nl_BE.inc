@@ -30,4 +30,6 @@ $labels['compose_form_not_ready'] = 'Opstelformulier niet klaar';
 $labels['reschedule_prompt'] = 'Voer de nieuwe verzendtijd in (JJJJ-MM-DD HH:MM, je lokale tijd):';
 $labels['reschedule_invalid'] = 'Datum/tijd niet correct. Gebruik de notatie JJJJ-MM-DD HH:MM.';
 $labels['reschedule_future'] = 'Het nieuwe tijdstip moet in de toekomst liggen.';
+$labels['recipient_prompt'] = 'E-mailadres waarnaar het bericht moet worden verzonden';
+$labels['recipient_required'] = 'Ontvanger verplicht';
 ?>

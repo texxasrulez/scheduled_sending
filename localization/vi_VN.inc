@@ -30,4 +30,6 @@ $labels['compose_form_not_ready'] = 'Biểu mẫu chưa sẵn sàng';
 $labels['reschedule_prompt'] = 'Nhập thời gian gửi mới (YYYY-MM-DD HH:MM, theo giờ địa phương của bạn):';
 $labels['reschedule_invalid'] = 'Không thể phân tích ngày/giờ. Vui lòng sử dụng định dạng YYYY-MM-DD HH:MM.';
 $labels['reschedule_future'] = 'Thời gian mới phải nằm trong tương lai.';
+$labels['recipient_prompt'] = 'Địa chỉ email để gửi đến';
+$labels['recipient_required'] = 'Phải có người nhận';
 ?>

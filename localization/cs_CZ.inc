@@ -30,4 +30,6 @@ $labels['compose_form_not_ready'] = 'Formulář Compose není připraven';
 $labels['reschedule_prompt'] = 'Zadejte nový čas odeslání (RRRR-MM-DD HH:MM, váš místní čas):';
 $labels['reschedule_invalid'] = 'Nelze analyzovat datum/čas. Použijte formát RRRR-MM-DD HH:MM.';
 $labels['reschedule_future'] = 'Nový čas musí být v budoucnosti.';
+$labels['recipient_prompt'] = 'E-mailová adresa, na kterou se má zaslat';
+$labels['recipient_required'] = 'Je nutné uvést příjemce';
 ?>

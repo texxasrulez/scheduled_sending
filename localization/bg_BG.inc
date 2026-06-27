@@ -30,4 +30,6 @@ $labels['compose_form_not_ready'] = 'Формата за съставяне не
 $labels['reschedule_prompt'] = 'Въведете новия час на изпращане (ГГГГ-ММ-ДД ЧЧ:ММ, вашето местно време):';
 $labels['reschedule_invalid'] = 'Не може да се анализира дата/час. Използвайте формат YYYY-MM-DD HH:MM.';
 $labels['reschedule_future'] = 'Новото време трябва да е в бъдещето.';
+$labels['recipient_prompt'] = 'Имейл адрес, на който да се изпрати';
+$labels['recipient_required'] = 'Задължително попълване на получател';
 ?>

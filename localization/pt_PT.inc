@@ -30,4 +30,6 @@ $labels['compose_form_not_ready'] = 'O formulário de composição não está pr
 $labels['reschedule_prompt'] = 'Introduza a nova hora de envio (AAAA-MM-DD HH:MM, a sua hora local):';
 $labels['reschedule_invalid'] = 'Não foi possível analisar a data/hora. Utilizar o formato AAAA-MM-DD HH:MM.';
 $labels['reschedule_future'] = 'O novo tempo deve estar no futuro.';
+$labels['recipient_prompt'] = 'Endereço de e-mail para onde enviar';
+$labels['recipient_required'] = 'É necessário indicar o destinatário';
 ?>

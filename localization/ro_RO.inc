@@ -30,4 +30,6 @@ $labels['compose_form_not_ready'] = 'Formularul de compunere nu este gata';
 $labels['reschedule_prompt'] = 'Introduceți noua oră de trimitere (AAAA-MM-DD HH:MM, ora dvs. locală):';
 $labels['reschedule_invalid'] = 'Nu s-a putut analiza data/ora. Utilizați formatul YYYY-MM-DD HH:MM.';
 $labels['reschedule_future'] = 'Noul timp trebuie să fie în viitor.';
+$labels['recipient_prompt'] = 'Adresa de e-mail la care să se trimită';
+$labels['recipient_required'] = 'Este necesar un destinatar';
 ?>

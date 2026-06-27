@@ -7,7 +7,7 @@ require_once __DIR__ . '/queue.inc.php';
  */
 class scheduled_sending extends rcube_plugin
 {
-    const PLUGIN_VERSION = '1.3.1';
+    const PLUGIN_VERSION = '1.3.0';
     const PLUGIN_INFO = array(
         'name' => 'scheduled_sending',
         'vendor' => 'Gene Hawkins',
@@ -516,6 +516,204 @@ class scheduled_sending extends rcube_plugin
         }
     }
 
+    private function _ss_public_plugin_asset_url($rel)
+    {
+        $rel = ltrim((string) $rel, '/');
+        $script = '';
+
+        foreach (array('SCRIPT_NAME', 'PHP_SELF') as $key) {
+            if (!empty($_SERVER[$key])) {
+                $script = (string) $_SERVER[$key];
+                break;
+            }
+        }
+
+        if ($script === '' && !empty($_SERVER['REQUEST_URI'])) {
+            $script = parse_url((string) $_SERVER['REQUEST_URI'], PHP_URL_PATH);
+        }
+
+        $script = str_replace('\\', '/', (string) $script);
+        $base = '';
+
+        if ($script !== '' && preg_match('~^(.*?)/public_html(?:/.*)?$~', $script, $m)) {
+            $base = $m[1];
+        } elseif ($script !== '') {
+            $base = rtrim(dirname($script), '/');
+            if (basename($base) === 'public_html') {
+                $base = rtrim(dirname($base), '/');
+            }
+        }
+
+        return ($base === '' ? '' : $base) . '/plugins/scheduled_sending/' . $rel;
+    }
+
+    private function _ss_format_from_header($identity)
+    {
+        if (is_object($identity)) {
+            $identity = (array) $identity;
+        }
+        if (!is_array($identity) || empty($identity['email'])) return '';
+
+        $email = trim((string) $identity['email']);
+        if ($email === '' || preg_match('/[\r\n]/', $email)) return '';
+
+        $name = isset($identity['name']) && trim((string) $identity['name']) !== ''
+            ? trim((string) $identity['name'])
+            : $email;
+
+        if (preg_match('/[\r\n]/', $name)) {
+            $name = $email;
+        }
+
+        return sprintf('"%s" <%s>', addcslashes($name, '"\\'), $email);
+    }
+
+    private function _ss_resolve_from_identity($posted_from)
+    {
+        $rc = $this->rc ?: rcmail::get_instance();
+        $posted = trim((string) $posted_from);
+        $identity = null;
+        $identity_id = 0;
+
+        if ($posted !== '' && ctype_digit($posted) && $rc->user && method_exists($rc->user, 'get_identity')) {
+            $identity_id = (int) $posted;
+            $identity = $rc->user->get_identity($identity_id);
+            if (is_object($identity)) {
+                $identity = (array) $identity;
+            }
+        }
+
+        if ((!is_array($identity) || empty($identity['email'])) && $posted !== '') {
+            $email = $posted;
+            $name = '';
+            if (preg_match('/^(.*)<([^>]+)>$/', $posted, $m)) {
+                $name = trim($m[1], " \t\n\r\0\x0B\"'");
+                $email = trim($m[2]);
+            }
+            if (filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                $identity = array('identity_id' => $identity_id, 'email' => $email, 'name' => $name !== '' ? $name : $email);
+            }
+        }
+
+        if ((!is_array($identity) || empty($identity['email'])) && $rc->user && method_exists($rc->user, 'list_identities')) {
+            $identities = $rc->user->list_identities();
+            if (is_array($identities)) {
+                if ($identity_id && isset($identities[$identity_id])) {
+                    $candidate = is_object($identities[$identity_id]) ? (array) $identities[$identity_id] : $identities[$identity_id];
+                    if (is_array($candidate) && !empty($candidate['email'])) {
+                        $identity = $candidate;
+                    }
+                }
+                if ((!is_array($identity) || empty($identity['email'])) && $identity_id) {
+                    foreach ($identities as $key => $candidate) {
+                        if (is_object($candidate)) $candidate = (array) $candidate;
+                        if (!is_array($candidate) || empty($candidate['email'])) continue;
+                        $candidate_id = 0;
+                        if (!empty($candidate['identity_id'])) $candidate_id = (int) $candidate['identity_id'];
+                        elseif (!empty($candidate['id'])) $candidate_id = (int) $candidate['id'];
+                        elseif (is_numeric($key)) $candidate_id = (int) $key;
+                        if ($candidate_id === $identity_id) {
+                            $identity = $candidate;
+                            break;
+                        }
+                    }
+                }
+                if ((!is_array($identity) || empty($identity['email']))) {
+                    foreach ($identities as $candidate) {
+                        if (is_object($candidate)) $candidate = (array) $candidate;
+                        if (is_array($candidate) && !empty($candidate['email']) && !empty($candidate['standard'])) {
+                            $identity = $candidate;
+                            break;
+                        }
+                    }
+                }
+                if ((!is_array($identity) || empty($identity['email']))) {
+                    foreach ($identities as $candidate) {
+                        if (is_object($candidate)) $candidate = (array) $candidate;
+                        if (is_array($candidate) && !empty($candidate['email'])) {
+                            $identity = $candidate;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        if (is_array($identity)) {
+            if (!empty($identity['identity_id'])) {
+                $identity_id = (int) $identity['identity_id'];
+            } elseif (!empty($identity['id'])) {
+                $identity_id = (int) $identity['id'];
+            }
+        }
+
+        $from = $this->_ss_format_from_header($identity);
+        if ($from === '') {
+            $fallback_email = '';
+            if ($rc->user && !empty($rc->user->data['username']) && filter_var($rc->user->data['username'], FILTER_VALIDATE_EMAIL)) {
+                $fallback_email = (string) $rc->user->data['username'];
+            } elseif (isset($_SESSION) && !empty($_SESSION['username']) && filter_var($_SESSION['username'], FILTER_VALIDATE_EMAIL)) {
+                $fallback_email = (string) $_SESSION['username'];
+            } else {
+                $smtp_user = (string) $rc->config->get('smtp_user', '');
+                if ($smtp_user !== '%u' && filter_var($smtp_user, FILTER_VALIDATE_EMAIL)) {
+                    $fallback_email = $smtp_user;
+                }
+            }
+            if ($fallback_email !== '') {
+                $identity = array('identity_id' => $identity_id, 'email' => $fallback_email, 'name' => $fallback_email);
+                $from = $this->_ss_format_from_header($identity);
+            }
+        }
+
+        $this->ss_debug(array(
+            'msg' => 'from_resolved',
+            'posted_from' => $posted,
+            'identity_id' => $identity_id,
+            'has_from' => (int) ($from !== ''),
+        ));
+
+        return array('id' => $identity_id, 'from' => $from, 'identity' => is_array($identity) ? $identity : array());
+    }
+
+    private function _ss_ensure_from_header($raw, $from)
+    {
+        $raw = (string) $raw;
+        $from = trim((string) $from);
+        if ($raw === '' || $from === '') return $raw;
+
+        if (preg_match('/^From:\s*\S/im', $raw)) {
+            return $raw;
+        }
+
+        if (preg_match('/^From:\s*$/im', $raw)) {
+            return preg_replace('/^From:\s*$/im', 'From: ' . $from, $raw, 1);
+        }
+
+        return 'From: ' . $from . "\r\n" . $raw;
+    }
+
+    private function _ss_has_recipient($to, $cc = '', $bcc = '')
+    {
+        foreach (array($to, $cc, $bcc) as $list) {
+            $list = trim((string) $list);
+            if ($list === '') continue;
+
+            foreach (preg_split('/\s*,\s*/', $list) as $addr) {
+                $addr = trim($addr);
+                if ($addr === '') continue;
+                if (preg_match('/<([^>]+)>/', $addr, $m)) {
+                    $addr = trim($m[1]);
+                }
+                if (filter_var($addr, FILTER_VALIDATE_EMAIL)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     /**
      * Build full MIME using Roundcube compose session (attachments in $_SESSION).
      * Returns raw RFC822 or empty string on failure.
@@ -933,6 +1131,17 @@ class scheduled_sending extends rcube_plugin
 			  copyField('_subject');
 			  copyField('_is_html');
 
+			  if (!((data['_to'] || '').trim() || (data['_cc'] || '').trim() || (data['_bcc'] || '').trim())) {
+				var rcpt = window.prompt(rcmail && rcmail.gettext ? rcmail.gettext('recipient_prompt', 'scheduled_sending') : 'Email address to send to');
+				if (!rcpt || !rcpt.trim()) {
+				  if (window.rcmail) rcmail.display_message(rcmail.gettext ? rcmail.gettext('recipient_required', 'scheduled_sending') : 'Recipient required', 'error');
+				  return;
+				}
+				data['_to'] = rcpt.trim();
+				var toField = form.querySelector('[name="_to"]');
+				if (toField) toField.value = data['_to'];
+			  }
+
 			  function isPlainHtml(html, text) {
 				if (!html) return true;
 				var s = ('' + html).replace(/<div[^>]*id=['"]?_rc_sig['"]?[^>]*>[\s\S]*?<\/div>/gi, '');
@@ -1154,10 +1363,19 @@ class scheduled_sending extends rcube_plugin
 
         // user + identity
         $user_id = $rc->user ? (int) $rc->user->ID : 0;
-        $identity_id = (int) rcube_utils::get_input_value('_from', rcube_utils::INPUT_POST);
+        $from_info = $this->_ss_resolve_from_identity(rcube_utils::get_input_value('_from', rcube_utils::INPUT_POST));
+        $identity_id = (int) $from_info['id'];
+        $resolved_from = (string) $from_info['from'];
+        if ($resolved_from === '') {
+            $this->ss_debug(array('msg' => 'schedule_error_no_from', 'identity_id' => $identity_id));
+            $rc->output->command('display_message', 'Unable to schedule: sender identity not found', 'error');
+            $rc->output->send();
+            return;
+        }
 
         // gather light meta
         $meta = array(
+            'from' => $resolved_from,
             'to'   => rcube_utils::get_input_value('_to', rcube_utils::INPUT_POST),
             'cc'   => rcube_utils::get_input_value('_cc', rcube_utils::INPUT_POST),
             'bcc'  => rcube_utils::get_input_value('_bcc', rcube_utils::INPUT_POST),
@@ -1172,11 +1390,32 @@ class scheduled_sending extends rcube_plugin
         // Build or accept raw MIME payload (minimal fallback if client does not send _raw_mime)
         $raw_mime = rcube_utils::get_input_value('_raw_mime', rcube_utils::INPUT_POST, true);
         if ($raw_mime === null) $raw_mime = '';
+        $raw_mime = $this->_ss_ensure_from_header($raw_mime, $resolved_from);
+        if (!$this->_ss_has_recipient($meta['to'], $meta['cc'], $meta['bcc']) && $raw_mime !== '') {
+            $raw_hdrs = $this->ss_parse_headers($raw_mime);
+            if (!$this->_ss_has_recipient(
+                isset($raw_hdrs['to']) ? $raw_hdrs['to'] : '',
+                isset($raw_hdrs['cc']) ? $raw_hdrs['cc'] : '',
+                isset($raw_hdrs['bcc']) ? $raw_hdrs['bcc'] : ''
+            )) {
+                $this->ss_debug(array('msg' => 'schedule_error_no_recipient'));
+                $rc->output->command('display_message', 'Unable to schedule: recipient required', 'error');
+                $rc->output->send();
+                return;
+            }
+        }
         if ($raw_mime === '') {
             $subject = (string) rcube_utils::get_input_value('_subject', rcube_utils::INPUT_POST, true);
             $to      = (string) rcube_utils::get_input_value('_to', rcube_utils::INPUT_POST, true);
             $cc      = (string) rcube_utils::get_input_value('_cc', rcube_utils::INPUT_POST, true);
             $bcc     = (string) rcube_utils::get_input_value('_bcc', rcube_utils::INPUT_POST, true);
+
+            if (!$this->_ss_has_recipient($to, $cc, $bcc)) {
+                $this->ss_debug(array('msg' => 'schedule_error_no_recipient'));
+                $rc->output->command('display_message', 'Unable to schedule: recipient required', 'error');
+                $rc->output->send();
+                return;
+            }
 
                         $body    = (string) rcube_utils::get_input_value('_message', rcube_utils::INPUT_POST, true);
             $msg_html = rcube_utils::get_input_value('_message_html', rcube_utils::INPUT_POST, true);
@@ -1194,15 +1433,7 @@ class scheduled_sending extends rcube_plugin
             }
 
 
-            $from = '';
-            $idval = rcube_utils::get_input_value('_from', rcube_utils::INPUT_POST);
-            if ($idval) {
-                $ident = $this->rc->user->get_identity((int)$idval);
-                if ($ident && !empty($ident['email'])) {
-                    $name = !empty($ident['name']) ? $ident['name'] : $ident['email'];
-                    $from = sprintf('"%s" <%s>', $name, $ident['email']);
-                }
-            }
+            $from = $resolved_from;
 
             $compose_id = rcube_utils::get_input_value('_id', rcube_utils::INPUT_POST);
             $compose_ctx = $this->_ss_get_compose_context($compose_id);
@@ -1429,6 +1660,11 @@ class scheduled_sending extends rcube_plugin
             $hdrs  = $this->ss_parse_headers($raw);
             list($headers_arr, $raw_body) = $this->_ss_split_raw_message($raw);
             $from  = isset($hdrs['from']) ? $hdrs['from'] : '';
+            if ($from === '' && !empty($meta['from'])) {
+                $from = (string) $meta['from'];
+                $headers_arr['From'] = $from;
+                $raw = $this->_ss_ensure_from_header($raw, $from);
+            }
             $to    = isset($hdrs['to']) ? $hdrs['to'] : '';
             $cc    = isset($hdrs['cc']) ? $hdrs['cc'] : '';
             $bcc   = isset($hdrs['bcc']) ? $hdrs['bcc'] : '';
@@ -1713,7 +1949,7 @@ class scheduled_sending extends rcube_plugin
                 $src = '';
                 foreach ($try as $rel) {
                     if (is_file($this->home . '/' . $rel)) {
-                        $src = $this->rc->output->abs_url($this->url($rel));
+                        $src = $this->_ss_public_plugin_asset_url($rel);
                         break;
                     }
                 }

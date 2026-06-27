@@ -30,4 +30,6 @@ $labels['compose_form_not_ready'] = '撰寫表單未就緒';
 $labels['reschedule_prompt'] = '輸入新的傳送時間（YYYY-MM-DD HH:MM，您的當地時間）：';
 $labels['reschedule_invalid'] = '無法解析日期/時間。使用 YYYY-MM-DD HH:MM 格式。';
 $labels['reschedule_future'] = '新時間一定在未來。';
+$labels['recipient_prompt'] = '要寄送至的電子郵件地址';
+$labels['recipient_required'] = '必須填寫收件人';
 ?>

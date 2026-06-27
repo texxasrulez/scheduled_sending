@@ -89,6 +89,16 @@ function __ss_collect_attachment_meta(target){
       var f = new FormData(form);
       function copyField(name, as){ if (f.has(name)) data[as||name] = f.get(name); }
       copyField('_id'); copyField('_from'); copyField('_to'); copyField('_cc'); copyField('_bcc'); copyField('_subject'); copyField('_is_html');
+      if (!((data._to || '').trim() || (data._cc || '').trim() || (data._bcc || '').trim())) {
+        var rcpt = window.prompt(t('recipient_prompt'));
+        if (!rcpt || !rcpt.trim()) {
+          if (window.rcmail) rcmail.display_message(t('recipient_required'), 'error');
+          return;
+        }
+        data._to = rcpt.trim();
+        var toField = form.querySelector('[name="_to"]');
+        if (toField) toField.value = data._to;
+      }
       data['_schedule_at'] = when.value;
       data['_schedule_ts'] = Math.floor(d.getTime()/1000);
       data['_schedule_tzoffset'] = - (new Date().getTimezoneOffset());

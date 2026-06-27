@@ -30,4 +30,6 @@ $labels['compose_form_not_ready'] = 'Komponeringsformuläret är inte klart';
 $labels['reschedule_prompt'] = 'Ange ny sändningstid (ÅÅÅÅ-MM-DD HH:MM, din lokala tid):';
 $labels['reschedule_invalid'] = 'Kunde inte tolka datum/tid. Använd formatet YYYY-MM-DD HH:MM.';
 $labels['reschedule_future'] = 'Ny tid måste ligga i framtiden.';
+$labels['recipient_prompt'] = 'E-postadress att skicka till';
+$labels['recipient_required'] = 'Mottagare krävs';
 ?>

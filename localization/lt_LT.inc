@@ -30,4 +30,6 @@ $labels['compose_form_not_ready'] = 'Kompiliavimo forma neparengta';
 $labels['reschedule_prompt'] = 'Įveskite naują išsiuntimo laiką (MMM-MM-DD HH:MM, jūsų vietinis laikas):';
 $labels['reschedule_invalid'] = 'Nepavyko išnarplioti datos ir laiko. Naudokite YYYYY-MM-DD HH:MM formatą.';
 $labels['reschedule_future'] = 'Naujas laikas turi būti ateityje.';
+$labels['recipient_prompt'] = 'El. pašto adresas, kuriuo reikia siųsti';
+$labels['recipient_required'] = 'Reikia nurodyti gavėją';
 ?>

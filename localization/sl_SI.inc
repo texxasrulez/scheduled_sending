@@ -30,4 +30,6 @@ $labels['compose_form_not_ready'] = 'Obrazec za sestavljanje ni pripravljen';
 $labels['reschedule_prompt'] = 'Vnesite nov čas pošiljanja (LLLL-MM-DD HH:MM, vaš lokalni čas):';
 $labels['reschedule_invalid'] = 'Ni bilo mogoče razčleniti datuma/časa. Uporabite format YYYY-MM-DD HH:MM.';
 $labels['reschedule_future'] = 'Novi čas mora biti v prihodnosti.';
+$labels['recipient_prompt'] = 'E-poštni naslov, na katerega naj se pošlje';
+$labels['recipient_required'] = 'Potreben je prejemnik';
 ?>

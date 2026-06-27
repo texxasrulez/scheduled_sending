@@ -30,4 +30,6 @@ $labels['compose_form_not_ready'] = 'Oluşturma formu hazır değil';
 $labels['reschedule_prompt'] = 'Yeni gönderme saatini girin (YYYY-MM-DD SAAT:MM, yerel saatiniz):';
 $labels['reschedule_invalid'] = 'Tarih/saat ayrıştırılamadı. YYYY-MM-DD HH:MM biçimini kullanın.';
 $labels['reschedule_future'] = 'Yeni zaman gelecekte olmalı.';
+$labels['recipient_prompt'] = 'Gönderilecek e-posta adresi';
+$labels['recipient_required'] = 'Alıcı bilgisi gereklidir';
 ?>

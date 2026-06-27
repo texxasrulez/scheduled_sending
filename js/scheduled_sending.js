@@ -41,6 +41,16 @@
     try { window.onbeforeunload = null; } catch(e){}
     var url = (window.rcmail ? rcmail.url('plugin.scheduled_sending.schedule') : '?_task=mail&_action=plugin.scheduled_sending.schedule');
     var fd = new FormData(form);
+    if (!((fd.get('_to') || '').trim() || (fd.get('_cc') || '').trim() || (fd.get('_bcc') || '').trim())) {
+      var rcpt = window.prompt(t('recipient_prompt'));
+      if (!rcpt || !rcpt.trim()) {
+        if (window.rcmail) rcmail.display_message(t('recipient_required'), 'error');
+        return;
+      }
+      fd.set('_to', rcpt.trim());
+      var toField = form.querySelector('[name="_to"]');
+      if (toField) toField.value = rcpt.trim();
+    }
 
     // SS: ensure editor content is flushed and included
     try {

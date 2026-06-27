@@ -30,4 +30,6 @@ $labels['compose_form_not_ready'] = 'El formulario no está listo';
 $labels['reschedule_prompt'] = 'Ingrese la nueva hora de envío (AAAA-MM-DD HH:MM, su hora local):';
 $labels['reschedule_invalid'] = 'No se pudo analizar la fecha/hora. Utilice el formato AAAA-MM-DD HH:MM.';
 $labels['reschedule_future'] = 'El nuevo tiempo debe estar en el futuro.';
+$labels['recipient_prompt'] = 'Dirección de correo electrónico a la que enviar';
+$labels['recipient_required'] = 'Se requiere un destinatario';
 ?>

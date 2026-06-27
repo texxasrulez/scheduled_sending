@@ -30,4 +30,6 @@ $labels['compose_form_not_ready'] = 'טופס הרכבה אינו מוכן';
 $labels['reschedule_prompt'] = 'הזן שעת שליחה חדשה (YYYY-MM-DD HH:MM, השעה המקומית שלך):';
 $labels['reschedule_invalid'] = 'לא ניתן לנתח את התאריך/שעה. השתמש בפורמט YYYY-MM-DD HH:MM.';
 $labels['reschedule_future'] = 'הזמן החדש חייב להיות בעתיד.';
+$labels['recipient_prompt'] = 'כתובת הדוא"ל שאליה יש לשלוח';
+$labels['recipient_required'] = 'נדרש לציין את שם הנמען';
 ?>

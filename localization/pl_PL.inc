@@ -30,4 +30,6 @@ $labels['compose_form_not_ready'] = 'Formularz komponowania nie jest gotowy';
 $labels['reschedule_prompt'] = 'Wprowadź nowy czas wysłania (RRRR-MM-DD GG:MM, czas lokalny):';
 $labels['reschedule_invalid'] = 'Nie można przeanalizować daty/godziny. Użyj formatu RRRR-MM-DD GG:MM.';
 $labels['reschedule_future'] = 'Nowy czas musi być w przyszłości.';
+$labels['recipient_prompt'] = 'Adres e-mail, na który należy wysłać wiadomość';
+$labels['recipient_required'] = 'Wymagane podanie odbiorcy';
 ?>
