@@ -1000,6 +1000,10 @@ class scheduled_sending extends rcube_plugin
     {
         $this->rc = rcmail::get_instance();
 
+		// Load plugin config for all tasks/actions so scheduled_timezone is available
+		// also in Settings > Scheduled messages, not only in worker/send_due actions.		
+		$this->load_config();
+
         // Load plugin localization for all tasks/actions
         $this->add_texts('localization', true);
 
