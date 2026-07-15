@@ -30,6 +30,4 @@ $labels['compose_form_not_ready'] = '양식 작성 준비가 완료되지 않음
 $labels['reschedule_prompt'] = '새 전송 시간(현지 시간 기준 YYYY-MM-DD HH:MM)을 입력합니다:';
 $labels['reschedule_invalid'] = '날짜/시간을 구문 분석할 수 없습니다. YYYY-MM-DD HH:MM 형식을 사용하세요.';
 $labels['reschedule_future'] = '새로운 시간은 미래여야 합니다.';
-$labels['recipient_prompt'] = '이메일을 보낼 주소';
-$labels['recipient_required'] = '수신자 필수';
 ?>

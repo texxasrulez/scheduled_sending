@@ -30,6 +30,4 @@ $labels['compose_form_not_ready'] = 'Sastādīt veidlapu nav gatava';
 $labels['reschedule_prompt'] = 'Ievadiet jauno nosūtīšanas laiku (GGGGG-MM-DD HH:MM, jūsu vietējais laiks):';
 $labels['reschedule_invalid'] = 'Nevar analizēt datumu/laiku. Izmantojiet YYYYYY-MM-DD HH:MM formātu.';
 $labels['reschedule_future'] = 'Jaunajam laikam jābūt nākotnē.';
-$labels['recipient_prompt'] = 'E-pasta adrese, uz kuru sūtīt';
-$labels['recipient_required'] = 'Jānorāda saņēmējs';
 ?>

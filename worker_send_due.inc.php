@@ -1,10 +1,37 @@
 <?php
+if (!function_exists('ss_config_bool')) {
+    function ss_config_bool($value)
+    {
+        if (is_bool($value)) {
+            return $value;
+        }
+
+        if (is_int($value)) {
+            return $value !== 0;
+        }
+
+        if (is_string($value)) {
+            $value = strtolower(trim($value));
+
+            if ($value === '' || in_array($value, array('0', 'false', 'off', 'no'), true)) {
+                return false;
+            }
+
+            if (in_array($value, array('1', 'true', 'on', 'yes'), true)) {
+                return true;
+            }
+        }
+
+        return (bool) $value;
+    }
+}
+
 // helper to respect scheduled_debug
 if (!function_exists('ss_debug')) {
     function ss_debug($payload) {
         try {
             $rc = rcmail::get_instance();
-            if ($rc && $rc->config->get('scheduled_debug', false) && function_exists('write_log')) {
+            if ($rc && ss_config_bool($rc->config->get('scheduled_debug', false)) && function_exists('write_log')) {
                 if (!is_scalar($payload)) {
                     $payload = json_encode($payload);
                 }
@@ -278,7 +305,7 @@ $res = $db->query($sql);if (!$res) {
                     ss_debug(array('msg'=>'imap post-send', 'err'=>$e->getMessage()));
                 }
 
-                $db->query("UPDATE $table SET status='sent', last_error=NULL, updated_at=UTC_TIMESTAMP() WHERE id=?", $id);
+                $db->query("UPDATE $table SET status='sent', raw_mime=NULL, last_error=NULL, updated_at=UTC_TIMESTAMP() WHERE id=?", $id);
                 $this->log('worker sent', array('id'=>$id)); $sent_ok++;
             } else {
                 $err = (string)$err; if ($err === '') { $err = 'unknown failure'; }

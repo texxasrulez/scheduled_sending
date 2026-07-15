@@ -30,6 +30,4 @@ $labels['compose_form_not_ready'] = 'Az űrlap összeállítása nem kész';
 $labels['reschedule_prompt'] = 'Adja meg az új küldési időt (ÉÉÉÉÉ-HH-HH:MM, helyi idő szerint):';
 $labels['reschedule_invalid'] = 'Nem tudta elemezni a dátumot/időt. Használja a YYYY-MM-DD HH:MM formátumot.';
 $labels['reschedule_future'] = 'Az új időnek a jövőben kell lennie.';
-$labels['recipient_prompt'] = 'A címzett e-mail-címe';
-$labels['recipient_required'] = 'Címzett megadása kötelező';
 ?>

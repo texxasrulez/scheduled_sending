@@ -9,6 +9,8 @@
  *
  * Or via environment:
  *   SS_WORKER_URL="https://mail.example.com/roundcube/" SS_WORKER_TOKEN="..." php bin/scheduled_queue_worker.php
+ *
+ * Set SS_WORKER_VERBOSE=1 to print successful worker responses.
  */
 
 date_default_timezone_set('UTC');
@@ -21,11 +23,37 @@ foreach ($argv as $arg) {
 
 $url   = getenv('SS_WORKER_URL') ?: (@$argv_map['url'] ?: '');
 $token = getenv('SS_WORKER_TOKEN') ?: (@$argv_map['token'] ?: '');
+$verbose = ss_cli_bool(getenv('SS_WORKER_VERBOSE') ?: (@$argv_map['verbose'] ?: false));
 
 if (!$url || !$token) {
     fwrite(STDERR, "Usage: php bin/scheduled_queue_worker.php --url='https://host/rc/' --token='TOKEN'\n");
     fwrite(STDERR, "Or set SS_WORKER_URL and SS_WORKER_TOKEN in the environment.\n");
     exit(2);
+}
+
+function ss_cli_bool($value)
+{
+    if (is_bool($value)) {
+        return $value;
+    }
+
+    if (is_int($value)) {
+        return $value !== 0;
+    }
+
+    if (is_string($value)) {
+        $value = strtolower(trim($value));
+
+        if ($value === '' || in_array($value, array('0', 'false', 'off', 'no'), true)) {
+            return false;
+        }
+
+        if (in_array($value, array('1', 'true', 'on', 'yes'), true)) {
+            return true;
+        }
+    }
+
+    return (bool) $value;
 }
 
 function ss_worker_endpoint($url, $token)
@@ -114,5 +142,8 @@ if (is_string($resp) && stripos($resp, 'configure your HTTP server to point to t
     exit(1);
 }
 
-echo "[$ts] scheduled_sending: worker response (HTTP $code): $resp\n";
+if ($verbose) {
+    echo "[$ts] scheduled_sending: worker response (HTTP $code): $resp\n";
+}
+
 exit(($code>=200 && $code<300) ? 0 : 1);

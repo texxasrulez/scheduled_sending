@@ -30,6 +30,4 @@ $labels['compose_form_not_ready'] = 'Форма композиции не гот
 $labels['reschedule_prompt'] = 'Введите новое время отправки (ГГГГ-ММ-ДД ЧЧ:ММ, ваше местное время):';
 $labels['reschedule_invalid'] = 'Не удалось разобрать дату/время. Используйте формат YYYY-MM-DD HH:MM.';
 $labels['reschedule_future'] = 'Новое время должно быть в будущем.';
-$labels['recipient_prompt'] = 'Адрес электронной почты для отправки';
-$labels['recipient_required'] = 'Требуется указать получателя';
 ?>

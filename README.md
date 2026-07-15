@@ -128,6 +128,7 @@ Key options (from `config.inc.php.dist`):
 $config['scheduled_sending_table']       = 'scheduled_queue';
 $config['scheduled_worker_batch']        = 20;
 $config['scheduled_timezone']            = 'America/Chicago'; // optional; storage is UTC
+$config['scheduled_sending_logging']     = false; // plugin log entries
 $config['scheduled_debug']               = false;
 $config['scheduled_force_plugin_assets'] = false;
 $config['scheduled_show_fab']            = true;
@@ -144,6 +145,8 @@ $config['scheduled_sending_lock_timeout'] = 10; // seconds
 ```
 
 **Important: set a strong** `scheduled_sending_worker_token` (32+ random characters).
+
+Set `scheduled_sending_logging` to `true` to write normal plugin and worker entries to the `scheduled_sending` Roundcube log. Set `scheduled_debug` to `true` only when you need the more detailed diagnostic trace written to `scheduled_sending_debug`.
 
 When `scheduled_sending_delivery` is `smtp`, scheduled rows store the scheduling user's SMTP username and encrypted SMTP password in `meta_json` when available. This lets the worker send later with the same Roundcube SMTP credentials in multi-user installations.
 
@@ -218,7 +221,7 @@ Cron variant:
 3. Ensure your cron/systemd job runs; the message should send at/after the scheduled time.
 4. Check logs:
    - Web server access/error logs
-   - `logs/` or a dedicated log (the plugin writes via `rcube::write_log('scheduled_sending', ...)` when enabled)
+   - `logs/` or a dedicated log (the plugin writes via `rcube::write_log('scheduled_sending', ...)` when `scheduled_sending_logging` is enabled)
 5. Confirm sent messages land in the configured **Sent** folder (if set).
 
 ---

@@ -7,7 +7,7 @@ require_once __DIR__ . '/queue.inc.php';
  */
 class scheduled_sending extends rcube_plugin
 {
-    const PLUGIN_VERSION = '1.3.1';
+    const PLUGIN_VERSION = '1.3.3';
     const PLUGIN_INFO = array(
         'name' => 'scheduled_sending',
         'vendor' => 'Gene Hawkins',
@@ -27,7 +27,7 @@ class scheduled_sending extends rcube_plugin
     private function ss_debug($payload) {
         try {
             $rc = $this->rc ?: rcmail::get_instance();
-            if ($rc && $rc->config->get('scheduled_debug', false) && function_exists('write_log')) {
+            if ($rc && ss_config_bool($rc->config->get('scheduled_debug', false)) && function_exists('write_log')) {
                 if (!is_scalar($payload)) {
                     $payload = json_encode($payload);
                 }
@@ -360,39 +360,17 @@ class scheduled_sending extends rcube_plugin
         return array('body' => $body, 'is_html' => $is_html);
     }
 
-    private function _ss_decrypt_session_password($value)
-    {
-        if (!is_string($value) || $value === '') return '';
-
-        try {
-            $rc = $this->rc ?: rcmail::get_instance();
-            if ($rc && method_exists($rc, 'decrypt')) {
-                $plain = $rc->decrypt($value);
-                if (is_string($plain) && $plain !== '') return $plain;
-            }
-        } catch (Exception $e) {
-            $this->ss_debug(array('msg' => 'smtp_password_decrypt_failed'));
-        }
-
-        return '';
-    }
-
     private function _ss_capture_smtp_credentials()
     {
         try {
             $rc = $this->rc ?: rcmail::get_instance();
             $cfg = $rc->config;
             $smtp_user = (string) $cfg->get('smtp_user', '');
-            $smtp_pass = (string) $cfg->get('smtp_pass', '');
             $login_user = '';
-            $login_pass = '';
 
             if (isset($_SESSION) && is_array($_SESSION)) {
                 if (!empty($_SESSION['username'])) {
                     $login_user = (string) $_SESSION['username'];
-                }
-                if (!empty($_SESSION['password'])) {
-                    $login_pass = $this->_ss_decrypt_session_password((string) $_SESSION['password']);
                 }
             }
 
@@ -403,16 +381,10 @@ class scheduled_sending extends rcube_plugin
             if ($smtp_user === '%u') {
                 $smtp_user = $login_user;
             }
-            if ($smtp_pass === '%p') {
-                $smtp_pass = $login_pass;
-            }
 
             $meta = array();
             if ($smtp_user !== '') {
                 $meta['smtp_user'] = $smtp_user;
-            }
-            if ($smtp_pass !== '' && method_exists($rc, 'encrypt')) {
-                $meta['smtp_pass_enc'] = $rc->encrypt($smtp_pass);
             }
 
             return $meta;
@@ -435,13 +407,6 @@ class scheduled_sending extends rcube_plugin
             if (!empty($meta['smtp_user'])) {
                 $restore['smtp_user'] = $cfg->get('smtp_user', null);
                 $cfg->set('smtp_user', (string) $meta['smtp_user']);
-            }
-            if (!empty($meta['smtp_pass_enc']) && method_exists($rc, 'decrypt')) {
-                $plain = $rc->decrypt((string) $meta['smtp_pass_enc']);
-                if (is_string($plain) && $plain !== '') {
-                    $restore['smtp_pass'] = $cfg->get('smtp_pass', null);
-                    $cfg->set('smtp_pass', $plain);
-                }
             }
         } catch (Exception $e) {
             $this->ss_debug(array('msg' => 'smtp_credential_apply_failed', 'err' => $e->getMessage()));
@@ -1059,8 +1024,12 @@ class scheduled_sending extends rcube_plugin
 
     private function log($msg, $ctx = array())
     {
-        // be defensive: only log if RC logger available
-        if (function_exists('write_log') && $this->rc->config->get('scheduled_debug', false)) {
+        // Be defensive: only log when explicitly enabled and RC logger is available.
+        $enabled = ss_config_bool($this->rc->config->get(
+            'scheduled_sending_logging',
+            ss_config_bool($this->rc->config->get('scheduled_debug', false))
+        ));
+        if (function_exists('write_log') && $enabled) {
             $entry = array('msg'=>$msg,'time'=>gmdate('c'),'ctx'=>$ctx);
             write_log($this->logname, $entry);
         }
@@ -1200,6 +1169,9 @@ class scheduled_sending extends rcube_plugin
 				if (window.rcmail && typeof rcmail.http_post === 'function') {
 				  rcmail.http_post('plugin.scheduled_sending.schedule', data);
 				} else {
+				  if (window.rcmail && rcmail.env && rcmail.env.request_token) {
+					data['_token'] = rcmail.env.request_token;
+				  }
 				  // last-resort sync fallback (should not happen)
 				  var xhr = new XMLHttpRequest();
 				  xhr.open('POST', '?_task=mail&_action=plugin.scheduled_sending.schedule&_remote=1', true);
@@ -1241,6 +1213,13 @@ class scheduled_sending extends rcube_plugin
 
     public function action_schedule()
     {
+        $rc = $this->rc;
+        if (method_exists($rc, 'check_request') && !$rc->check_request()) {
+            $rc->output->command('display_message', 'Invalid request token.', 'error');
+            $rc->output->send();
+            return;
+        }
+
         // ===== SS TZ DEBUG START =====
         try {
             $post = function($k){ return rcube_utils::get_input_value($k, rcube_utils::INPUT_GPC); };
@@ -1328,7 +1307,6 @@ class scheduled_sending extends rcube_plugin
         } catch (Exception $e) {
             $this->ss_debug(array('msg'=>'tz normalize error','err'=>$e->getMessage()));
         }
-		$rc = $this->rc;
         $this->ss_debug(array('msg'=>'action_schedule start','time'=>date('c'),'framed'=>(int)$rc->output->framed));
 
         // pull time
@@ -1800,7 +1778,7 @@ class scheduled_sending extends rcube_plugin
                             }
                         }
                     }
-                    $db->query("UPDATE $table SET status = 'sent', updated_at = NOW() WHERE id = ?", $id);
+                    $db->query("UPDATE $table SET status = 'sent', raw_mime = NULL, updated_at = NOW() WHERE id = ?", $id);
                     $sent_ok++;
                 } catch (\Exception $e) {
                     $this->ss_debug(array('msg'=>'worker imap err','err'=>$e->getMessage()));

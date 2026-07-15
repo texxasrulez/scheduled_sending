@@ -30,6 +30,4 @@ $labels['compose_form_not_ready'] = 'Formulir penulisan tidak siap';
 $labels['reschedule_prompt'] = 'Masukkan waktu kirim baru (YYYY-MM-DD HH:MM, waktu setempat Anda):';
 $labels['reschedule_invalid'] = 'Tidak dapat mengurai tanggal/waktu. Gunakan format YYYY-MM-DD HH:MM.';
 $labels['reschedule_future'] = 'Waktu yang baru harus di masa depan.';
-$labels['recipient_prompt'] = 'Alamat email tujuan';
-$labels['recipient_required'] = 'Diperlukan penerima';
 ?>

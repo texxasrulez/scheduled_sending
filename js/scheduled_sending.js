@@ -82,6 +82,9 @@
     }
 
     fd.append('_schedule_at', i.value);
+    if (window.rcmail && rcmail.env && rcmail.env.request_token) {
+      fd.set('_token', rcmail.env.request_token);
+    }
 
     fetch(url, { method:'POST', body: fd, credentials:'same-origin' })
       .then(function(resp){ if (!resp.ok) throw new Error('HTTP '+resp.status); return resp.text(); })

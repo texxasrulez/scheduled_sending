@@ -30,6 +30,4 @@ $labels['compose_form_not_ready'] = 'Compose form not ready';
 $labels['reschedule_prompt'] = 'Enter new send time (YYYY-MM-DD HH:MM, your local time):';
 $labels['reschedule_invalid'] = 'Could not parse date/time. Use YYYY-MM-DD HH:MM format.';
 $labels['reschedule_future'] = 'New time must be in the future.';
-$labels['recipient_prompt'] = 'Email address to send to';
-$labels['recipient_required'] = 'Recipient required';
 ?>

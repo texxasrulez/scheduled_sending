@@ -30,6 +30,4 @@ $labels['compose_form_not_ready'] = 'Le formulaire de composition n\'est pas prÃ
 $labels['reschedule_prompt'] = 'Saisir la nouvelle heure d\'envoi (AAAA-MM-JJ HH:MM, heure locale) :';
 $labels['reschedule_invalid'] = 'Impossible d\'analyser la date et l\'heure. Utiliser le format AAAA-MM-JJ HH:MM.';
 $labels['reschedule_future'] = 'Le temps nouveau doit se situer dans le futur.';
-$labels['recipient_prompt'] = 'Adresse e-mail de destination';
-$labels['recipient_required'] = 'Destinataire obligatoire';
 ?>

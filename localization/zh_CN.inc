@@ -30,6 +30,4 @@ $labels['compose_form_not_ready'] = '撰写表格未就绪';
 $labels['reschedule_prompt'] = '输入新的发送时间（YYYY-MM-DD HH:MM，当地时间）：';
 $labels['reschedule_invalid'] = '无法解析日期/时间。使用 YYYY-MM-DD HH:MM 格式。';
 $labels['reschedule_future'] = '新时间一定在未来。';
-$labels['recipient_prompt'] = '收件人电子邮箱地址';
-$labels['recipient_required'] = '必须填写收件人';
 ?>

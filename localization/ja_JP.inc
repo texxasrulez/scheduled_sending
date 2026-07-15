@@ -30,6 +30,4 @@ $labels['compose_form_not_ready'] = 'フォームを作成する';
 $labels['reschedule_prompt'] = '新しい送信時刻（YYYY-MM-DD HH:MM、現地時間）を入力します：';
 $labels['reschedule_invalid'] = '日付/時刻を解析できませんでした。YYYY-MM-DD HH:MM形式を使用してください。';
 $labels['reschedule_future'] = '新しい時間は未来にあるに違いない。';
-$labels['recipient_prompt'] = '送信先のメールアドレス';
-$labels['recipient_required'] = '受取人の指定が必要です';
 ?>

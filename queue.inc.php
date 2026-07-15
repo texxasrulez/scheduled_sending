@@ -1,6 +1,18 @@
 <?php
 // Queue viewer + actions for scheduled_sending
 trait scheduled_sending_queue_trait {
+    private function ss_queue_check_request()
+    {
+        $rc = $this->rc;
+        if (method_exists($rc, 'check_request') && !$rc->check_request()) {
+            $rc->output->command('display_message', 'Invalid request token.', 'error');
+            $rc->output->send();
+            return false;
+        }
+
+        return true;
+    }
+
     public function action_queue()
     {
         $rc = $this->rc;
@@ -17,7 +29,8 @@ trait scheduled_sending_queue_trait {
         $db  = $rc->get_dbh();
         $table = $cfg->get('db_table_scheduled_sending', 'scheduled_queue');
         $limit = 200;
-        $q = $db->query("SELECT id, user_id, identity_id, status, scheduled_at, created_at, updated_at, meta_json, last_error FROM $table WHERE status IN ('queued','processing','error') ORDER BY scheduled_at ASC LIMIT $limit");
+        $user_id = $rc->user ? (int) $rc->user->ID : 0;
+        $q = $db->query("SELECT id, user_id, identity_id, status, scheduled_at, created_at, updated_at, meta_json, last_error FROM $table WHERE user_id=? AND status IN ('queued','processing','error') ORDER BY scheduled_at ASC LIMIT $limit", $user_id);
         $rows = array();
         while ($q && ($r = $db->fetch_assoc($q))) {
             $meta = array();
@@ -46,12 +59,15 @@ trait scheduled_sending_queue_trait {
     public function action_queue_cancel()
     {
         $rc  = $this->rc;
+        if (!$this->ss_queue_check_request()) return;
+
         $cfg = $rc->config;
         $db  = $rc->get_dbh();
         $table = $cfg->get('db_table_scheduled_sending', 'scheduled_queue');
+        $user_id = $rc->user ? (int) $rc->user->ID : 0;
         $id = (int) rcube_utils::get_input_value('id', rcube_utils::INPUT_POST);
         if ($id > 0) {
-            $db->query("UPDATE $table SET status='canceled', updated_at=NOW() WHERE id=? AND status IN ('queued','processing')", $id);
+            $db->query("UPDATE $table SET status='canceled', updated_at=NOW() WHERE id=? AND user_id=? AND status IN ('queued','processing')", $id, $user_id);
         }
         $rc->output->command('display_message', $this->gettext('queue_cancel_ok'), 'confirmation');
         $rc->output->send();
@@ -60,14 +76,17 @@ trait scheduled_sending_queue_trait {
     public function action_queue_reschedule()
     {
         $rc  = $this->rc;
+        if (!$this->ss_queue_check_request()) return;
+
         $cfg = $rc->config;
         $db  = $rc->get_dbh();
         $table = $cfg->get('db_table_scheduled_sending', 'scheduled_queue');
+        $user_id = $rc->user ? (int) $rc->user->ID : 0;
         $id = (int) rcube_utils::get_input_value('id', rcube_utils::INPUT_POST);
         $ts = (int) rcube_utils::get_input_value('at_ts', rcube_utils::INPUT_POST);
         if ($id > 0 && $ts > 0) {
             $utc = gmdate('Y-m-d H:i:s', $ts);
-            $db->query("UPDATE $table SET status='queued', scheduled_at=?, updated_at=NOW() WHERE id=?", $utc, $id);
+            $db->query("UPDATE $table SET status='queued', scheduled_at=?, updated_at=NOW() WHERE id=? AND user_id=?", $utc, $id, $user_id);
         }
         $rc->output->command('display_message', $this->gettext('queue_resched_ok'), 'confirmation');
         $rc->output->send();
@@ -76,11 +95,13 @@ trait scheduled_sending_queue_trait {
     public function action_queue_delete()
     {
         $rc  = $this->rc;
+        if (!$this->ss_queue_check_request()) return;
+
         $cfg = $rc->config;
         $db  = $rc->get_dbh();
         $table = $cfg->get('db_table_scheduled_sending', 'scheduled_queue');
         $id = (int) rcube_utils::get_input_value('_id', rcube_utils::INPUT_POST);
-        $user_id = $rc->user->ID;
+        $user_id = $rc->user ? (int) $rc->user->ID : 0;
 
         if ($id > 0) {
             $sql = "DELETE FROM {$table} WHERE id = ? AND user_id = ?";

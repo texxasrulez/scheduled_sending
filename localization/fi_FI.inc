@@ -30,6 +30,4 @@ $labels['compose_form_not_ready'] = 'Lomakkeen laatiminen ei ole valmis';
 $labels['reschedule_prompt'] = 'Syötä uusi lähetysaika (VVVV-KK-PP KH:MM, paikallista aikaa):';
 $labels['reschedule_invalid'] = 'Päivämäärää/aikaa ei pystytty jäsentämään. Käytä YYYY-MM-DD HH:MM-muotoa.';
 $labels['reschedule_future'] = 'Uuden ajan on oltava tulevaisuudessa.';
-$labels['recipient_prompt'] = 'Sähköpostiosoite, johon viesti lähetetään';
-$labels['recipient_required'] = 'Vastaanottaja vaaditaan';
 ?>

@@ -30,6 +30,4 @@ $labels['compose_form_not_ready'] = 'Vormi koostamine ei ole valmis';
 $labels['reschedule_prompt'] = 'Sisestage uus saatekellaaeg (JAAJ-MM-TKT TUNN:MM, teie kohalik aeg):';
 $labels['reschedule_invalid'] = 'Ei suutnud analüüsida kuupäeva/kellaaega. Kasuta JAAJ-MM-TKT TUNN:MM formaati.';
 $labels['reschedule_future'] = 'Uus aeg peab olema tulevikus.';
-$labels['recipient_prompt'] = 'E-posti aadress, kuhu saata';
-$labels['recipient_required'] = 'Vajalik on saaja';
 ?>

@@ -30,6 +30,4 @@ $labels['compose_form_not_ready'] = 'نموذج التأليف غير جاهز';
 $labels['reschedule_prompt'] = 'أدخل وقت الإرسال الجديد (YYYY-MM-DM-DDH:MM، بالتوقيت المحلي لديك):';
 $labels['reschedule_invalid'] = 'تعذر تحليل التاريخ/الوقت. استخدم التنسيق YYYY-MMM-DD HH:MM.';
 $labels['reschedule_future'] = 'يجب أن يكون الوقت الجديد في المستقبل.';
-$labels['recipient_prompt'] = 'عنوان البريد الإلكتروني الذي سيتم الإرسال إليه';
-$labels['recipient_required'] = 'يلزم وجود مستلم';
 ?>
